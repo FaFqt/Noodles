@@ -1,0 +1,686 @@
+Je vais structurer cela en 3 parties :
+
+1️⃣ Flow global du jeu
+2️⃣ Structure des écrans pour Figma
+3️⃣ Améliorations UX que je recommande
+
+1️⃣ Flow global du jeu
+
+Voici le parcours utilisateur principal.
+
+Launch App
+   ↓
+Start Screen
+   ↓
+Login / Account
+   ↓
+Tutorial (optionnel)
+   ↓
+Village Hub
+   ↓
+Lieu sélectionné
+   ↓
+Gameplay du lieu
+   ↓
+Retour Village
+2️⃣ Structure d’écrans pour ton fichier Figma
+
+Je te conseille d’organiser ton projet Figma en 5 sections principales.
+
+01_ONBOARDING
+02_VILLAGE
+03_BUILDINGS
+04_GAMEPLAY
+05_META
+01 — ONBOARDING
+Screen 1 — Start Screen
+
+Contenu :
+
+Logo NOODLES
+
+Mascotte (chef Shiba)
+
+Bouton principal
+
+[ PLAY 🍜 ]
+
+Boutons secondaires :
+
+Settings ⚙️
+Language 🌍
+
+Interaction :
+
+PLAY → Login Screen
+Screen 2 — Login
+
+Deux options :
+
+Continue with Google
+Continue with Cartridge Wallet
+Play as Guest
+
+UX recommandée :
+
+Guest mode fortement conseillé
+
+Wallet option après tutorial
+
+Flow :
+
+Login → Tutorial → Village
+02 — VILLAGE (Hub principal)
+
+C’est l’écran le plus important du jeu.
+
+Le village doit être :
+
+scrollable
+
+interactif
+
+vivant
+
+Interaction
+
+Le joueur peut :
+
+drag finger → déplacer la carte
+tap bâtiment → entrer
+pinch (optionnel) → zoom
+Bâtiments visibles
+
+Exemple layout :
+
+        🌳
+  Greenhouse     Library
+
+Market     RAMEN SHOP     Friends
+
+          🚧
+     Future building
+UI fixe (overlay)
+
+En haut :
+
+Coins
+NOOD tokens
+Level
+
+En bas :
+
+Home (village)
+Shop
+Events
+Profile
+03 — BUILDINGS
+
+Chaque bâtiment ouvre un écran dédié.
+
+🍜 Restaurant
+
+Flow :
+
+Prepare menu
+↓
+Open service
+↓
+Cook ramen
+↓
+Daily results
+🛒 Market
+
+Sections :
+
+Common ingredients
+International market
+Friends trade
+🌱 Greenhouse
+
+Gameplay :
+
+Plant
+Wait / grow
+Harvest
+Use / sell
+📚 Library
+
+Fonctions :
+
+Recipe book
+Discover recipes
+Unlock pages
+Legendary recipes
+👥 Friends
+
+Fonctions :
+
+Friend list
+Visit restaurant
+Send gifts
+Trade ingredients
+Leaderboard
+04 — GAMEPLAY (restaurant)
+
+Flow détaillé :
+
+Village
+↓
+Restaurant
+↓
+Prepare menu
+↓
+Open service
+↓
+Cook ramen (10 orders)
+↓
+Daily results
+↓
+Back to village
+05 — META SCREENS
+
+Screens secondaires :
+
+Profile
+Settings
+Achievements
+Events
+Season pass
+3️⃣ UX improvements que je recommande
+
+Voici quelques optimisations que les studios mobiles utilisent toujours.
+
+⭐ 1 — Navigation par swipe dans le village
+
+Au lieu d’un village trop grand :
+
+Divise-le en zones horizontales.
+
+[Greenhouse] — swipe → [Restaurant] — swipe → [Market]
+
+Cela rend la navigation plus simple sur mobile.
+
+⭐ 2 — Bouton retour village permanent
+
+Ajoute toujours un bouton :
+
+🏡 Village
+
+en haut à gauche.
+
+Les joueurs ne doivent jamais se perdre.
+
+⭐ 3 — Notifications visuelles
+
+Utilise les bulles rouges.
+
+Exemple :
+
+Library 🔴
+New recipe unlocked
+Greenhouse 🔴
+Plants ready
+
+Très addictif.
+
+⭐ 4 — Camera focus au lancement
+
+Quand le joueur arrive dans le village :
+
+La caméra se place sur :
+
+🍜 RAMEN SHOP
+
+Car c’est le gameplay principal.
+
+⭐ 5 — Tutorial léger
+
+Premier jour :
+
+Plant ingredient
+Cook first ramen
+Serve first client
+
+Durée idéale :
+
+90 secondes max.
+
+4️⃣ Flow Figma prêt à construire
+
+Dans Figma :
+
+START
+↓
+LOGIN
+↓
+TUTORIAL
+↓
+VILLAGE HUB
+  ├ Restaurant
+  ├ Market
+  ├ Greenhouse
+  ├ Library
+  ├ Friends
+  └ Future buildings
+↓
+GAMEPLAY
+↓
+RESULTS
+↓
+BACK TO VILLAGE
+5️⃣ Conseil UX très important
+
+Le village est ton écran principal.
+
+Il doit :
+
+vivre
+
+bouger
+
+montrer les progrès du joueur
+
+Exemples :
+
+fumée du restaurant
+
+plantes qui poussent
+
+amis qui visitent
+
+C’est ce qui crée l’attachement.
+
+Si tu veux, je peux aussi te créer
+
+📱 un template Figma complet prêt à utiliser avec :
+
+layout mobile
+
+village map
+
+flows interactifs
+
+composants UI
+
+navigation prototype
+
+ou même un Game UI Kit complet pour Noodles 🍜.
+
+un template complet figma stp 
+
+Je vais te donner un template Figma complet prêt à reconstruire rapidement, organisé comme le ferait une équipe de UX mobile pour un jeu casual. Tu pourras copier la structure directement dans Figma et créer tes frames en quelques minutes.
+
+Je vais inclure :
+
+structure du fichier
+
+composants UI
+
+écrans
+
+flows
+
+design system
+
+📁 Structure du fichier Figma
+
+Nom du fichier :
+
+NOODLES – Game UI / UX
+
+Pages Figma recommandées :
+
+01_COVER
+02_DESIGN_SYSTEM
+03_COMPONENTS
+04_ONBOARDING
+05_VILLAGE
+06_BUILDINGS
+07_GAMEPLAY
+08_META
+09_PROTOTYPE_FLOW
+🎨 1. DESIGN SYSTEM (page 02)
+
+Créer les styles globaux.
+
+Couleurs
+
+Palette kawaii proposée :
+
+Primary
+
+Ramen Orange #FF8A3D
+
+Secondary
+
+Miso Brown #6B3F1D
+
+Background
+
+Rice Cream #FFF4E8
+
+Accent
+
+Matcha Green #7ED957
+
+Rare
+
+Gold #FFC83D
+
+Epic
+
+Purple #A66CFF
+
+Error
+
+Chili Red #FF4D4D
+Typographie
+
+Titre principal
+
+Fredoka Bold
+32 / 40
+
+Boutons
+
+Fredoka Medium
+20
+
+Texte UI
+
+Nunito
+16
+
+Petit texte
+
+Nunito
+12
+🧩 2. COMPONENTS (page 03)
+
+Créer les composants réutilisables.
+
+Bouton principal
+
+Frame :
+
+Button / Primary
+
+Dimensions
+
+280 x 72
+
+Style
+
+fond orange
+
+coins arrondis 24px
+
+ombre douce
+
+Texte :
+
+PLAY 🍜
+
+Variants :
+
+Primary
+Secondary
+Disabled
+Bouton bâtiment
+
+Composant :
+
+Building_Button
+
+Contenu :
+
+Icon
+Label
+Notification dot
+
+Exemple :
+
+Market
+Friends
+Greenhouse
+Library
+Top bar
+
+Composant :
+
+Top_UI
+
+Contient :
+
+Coins
+NOOD tokens
+Level
+Profile icon
+Notification bubble
+
+Composant :
+
+Notification_Dot
+
+Couleur :
+
+Red
+📱 3. ONBOARDING SCREENS
+
+Frame size
+
+390 x 844
+(iPhone 14)
+Screen 1 — Start Screen
+
+Frame
+
+START_SCREEN
+
+Contenu
+
+Logo NOODLES
+Mascot
+Button PLAY
+Settings icon
+
+Flow :
+
+PLAY → LOGIN
+Screen 2 — Login
+
+Frame
+
+LOGIN_SCREEN
+
+Boutons :
+
+Continue with Google
+Continue with Cartridge
+Play as Guest
+
+Recommandé UX :
+
+Guest en premier.
+
+🏡 4. VILLAGE HUB
+
+Frame
+
+VILLAGE_MAP
+
+Largeur recommandée :
+
+1600 x 844
+
+(le joueur swipe horizontalement)
+
+Zones
+Greenhouse
+Restaurant
+Market
+Library
+Friends
+Future building
+Navigation
+
+Interaction :
+
+Swipe horizontal
+Tap building
+Overlay UI
+
+Top :
+
+Coins
+NOOD tokens
+Level
+
+Bottom :
+
+Village
+Shop
+Events
+Profile
+🏪 5. BUILDINGS
+
+Créer un frame par bâtiment.
+
+Restaurant
+
+Frame
+
+RESTAURANT_MENU
+
+Sections :
+
+Ingredients
+Selected recipes
+Open service button
+Market
+
+Frame
+
+MARKET
+
+Tabs :
+
+Common ingredients
+International market
+Friends trades
+Greenhouse
+
+Frame
+
+GREENHOUSE
+
+Contenu :
+
+Plant slots
+Water
+Harvest
+Library
+
+Frame
+
+LIBRARY
+
+Contenu :
+
+Recipe book
+Recipe cards
+Discovery progress
+Friends
+
+Frame
+
+FRIENDS
+
+Sections :
+
+Friend list
+Visit restaurant
+Trade ingredients
+Leaderboard
+🍜 6. GAMEPLAY (Restaurant)
+
+Frame :
+
+COOKING_SCREEN
+
+Zones :
+
+Order queue
+Cooking area
+Ingredients tray
+Serve button
+
+Flow :
+
+Start service
+↓
+Cook ramen
+↓
+Serve
+↓
+Next order
+
+Total :
+
+10 orders
+📊 7. RESULT SCREEN
+
+Frame :
+
+DAILY_RESULTS
+
+Contenu :
+
+Orders served
+Customer happiness
+Coins earned
+NOOD tokens
+Recipe pages
+
+Bouton :
+
+Back to village
+🧠 8. PROTOTYPE FLOW
+
+Dans la page prototype :
+
+Relier :
+
+START
+↓
+LOGIN
+↓
+TUTORIAL
+↓
+VILLAGE
+↓
+BUILDINGS
+↓
+GAMEPLAY
+↓
+RESULT
+↓
+VILLAGE
+⭐ Astuce UX très importante
+
+Dans le prototype Figma :
+
+Activer
+
+Smart Animate
+
+pour simuler :
+
+transitions
+
+caméra village
+
+ouverture bâtiments
+
+Cela donne un prototype presque jouable.
