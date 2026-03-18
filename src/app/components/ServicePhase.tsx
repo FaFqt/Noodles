@@ -104,6 +104,10 @@ type ToppingParticle = {
 };
 
 const TOPPING_COLORS = ["#F7E7A8", "#F0D27A", "#D8B25A", "#FFF1C9"];
+const SWIPE_TOLERANCE = 44;
+const SOFT_TOLERANCE = 60;
+const MAX_SAMPLE_STEP = 14;
+const SERVICE_VALIDATE_THRESHOLD = 90;
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -170,6 +174,7 @@ export default function ServicePhase({
   const { language } = useLanguage();
 
   const guideRef = useRef<HTMLDivElement | null>(null);
+  const lastPointerPointRef = useRef<Point | null>(null);
   const visitedIndicesRef = useRef<number[]>([]);
   const particleIdRef = useRef(0);
   const particleTimeoutsRef = useRef<number[]>([]);
@@ -193,7 +198,7 @@ export default function ServicePhase({
 
   const guidePath = useMemo(() => toSvgPath(guidePoints), [guidePoints]);
 
-  const completed = serviceProgress >= 100;
+  const completed = serviceProgress >= SERVICE_VALIDATE_THRESHOLD;
   const remainingRatio = Math.max(
     0,
     timeLeftMs / (startingTimeLeftSeconds * 1000)
@@ -261,15 +266,7 @@ export default function ServicePhase({
     });
   };
 
-  const updateFromPointer = (clientX: number, clientY: number) => {
-    const rect = guideRef.current?.getBoundingClientRect();
-    if (!rect) return;
-
-    const localPoint = {
-      x: clientX - rect.left,
-      y: clientY - rect.top,
-    };
-
+  const updateFromLocalPoint = (localPoint: Point) => {
     let closestIndex = -1;
     let closestDistance = Infinity;
 
@@ -281,9 +278,14 @@ export default function ServicePhase({
       }
     });
 
-    // Tolérance autour du tracé
-    if (closestDistance > 34) {
-      setQuality((prev) => clamp(prev - 0.25, 0, 100));
+    // Tolérance autour du tracé, avec une zone douce pour éviter un ressenti trop punitif.
+    if (closestDistance > SOFT_TOLERANCE) {
+      setQuality((prev) => clamp(prev - 0.18, 0, 100));
+      return;
+    }
+
+    if (closestDistance > SWIPE_TOLERANCE) {
+      setQuality((prev) => clamp(prev - 0.08, 0, 100));
       return;
     }
 
@@ -298,14 +300,43 @@ export default function ServicePhase({
 
     // pénalité légère si on saute trop loin
     const last = previous.length ? previous[previous.length - 1] : -1;
-    if (last !== -1 && closestIndex > last + 10) {
-      setQuality((q) => clamp(q - 1.2, 0, 100));
+    if (last !== -1 && closestIndex > last + 14) {
+      setQuality((q) => clamp(q - 0.8, 0, 100));
       showFeedback(language === "fr" ? "Trop brusque" : "Too abrupt");
     }
 
     const ratio =
       next.length > 0 ? next.length / Math.max(1, guidePoints.length) : 0;
     setServiceProgress(clamp(ratio * 100, 0, 100));
+  };
+
+  const updateFromPointer = (clientX: number, clientY: number) => {
+    const rect = guideRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const localPoint = {
+      x: clientX - rect.left,
+      y: clientY - rect.top,
+    };
+
+    const previousPoint = lastPointerPointRef.current;
+    lastPointerPointRef.current = localPoint;
+
+    if (!previousPoint) {
+      updateFromLocalPoint(localPoint);
+      return;
+    }
+
+    const segmentDistance = distance(previousPoint, localPoint);
+    const steps = Math.max(1, Math.ceil(segmentDistance / MAX_SAMPLE_STEP));
+
+    for (let index = 1; index <= steps; index += 1) {
+      const t = index / steps;
+      updateFromLocalPoint({
+        x: previousPoint.x + (localPoint.x - previousPoint.x) * t,
+        y: previousPoint.y + (localPoint.y - previousPoint.y) * t,
+      });
+    }
   };
 
   useEffect(() => {
@@ -345,6 +376,7 @@ export default function ServicePhase({
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     setIsPointerDown(true);
+    lastPointerPointRef.current = null;
     updateFromPointer(e.clientX, e.clientY);
     e.currentTarget.setPointerCapture(e.pointerId);
   };
@@ -356,6 +388,7 @@ export default function ServicePhase({
 
   const handlePointerUp = () => {
     setIsPointerDown(false);
+    lastPointerPointRef.current = null;
   };
 
   const handleValidate = () => {
@@ -363,7 +396,7 @@ export default function ServicePhase({
     setIsCompleted(true);
     onComplete({
       quality: Math.round(clamp(quality, 0, 100)),
-      serviceProgress: 100,
+      serviceProgress: Math.round(clamp(serviceProgress, 0, 100)),
       remainingTimeSeconds: Math.ceil(timeLeftMs / 1000),
     });
   };

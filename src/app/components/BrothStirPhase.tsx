@@ -297,6 +297,7 @@ export default function BrothStirPhase({
   const [stirProgress, setStirProgress] = useState(0);
   const [feedback, setFeedback] = useState("");
   const [isCompleted, setIsCompleted] = useState(false);
+  const [isValidationUnlocked, setIsValidationUnlocked] = useState(false);
 
   const trackingRef = useRef<{
     pointerId: number;
@@ -311,6 +312,9 @@ export default function BrothStirPhase({
     0,
     timeLeftMs / (startingTimeLeftSeconds * 1000)
   );
+  const displayedStirProgress = isValidationUnlocked
+    ? 100
+    : clamp(stirProgress, 0, 100);
 
   const progressColor =
     remainingRatio > 0.66
@@ -328,6 +332,12 @@ export default function BrothStirPhase({
     () => rhythmLabel(language, cycleMs),
     [language, cycleMs]
   );
+
+  useEffect(() => {
+    if (stirProgress >= 100) {
+      setIsValidationUnlocked(true);
+    }
+  }, [stirProgress]);
 
   const showFeedback = useCallback((text: string) => {
     const now = Date.now();
@@ -441,6 +451,8 @@ export default function BrothStirPhase({
   );
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isValidationUnlocked || isCompleted) return;
+
     const angle = getAngleFromPointer(e.clientX, e.clientY);
     trackingRef.current = {
       pointerId: e.pointerId,
@@ -451,6 +463,8 @@ export default function BrothStirPhase({
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isValidationUnlocked || isCompleted) return;
+
     const tracking = trackingRef.current;
     if (!tracking || tracking.pointerId !== e.pointerId) return;
 
@@ -476,7 +490,7 @@ export default function BrothStirPhase({
   };
 
   const handleValidate = () => {
-    if (stirProgress < 100 || isCompleted) return;
+    if (!isValidationUnlocked || isCompleted) return;
 
     setIsCompleted(true);
     onComplete({
@@ -591,6 +605,25 @@ export default function BrothStirPhase({
           </div>
         ) : null}
 
+        {isValidationUnlocked && !isCompleted ? (
+          <div
+            className="absolute rounded-full bg-[#fff7ea]/95 px-3 py-[3px] text-center shadow"
+            style={{
+              left: UI.feedback.x,
+              top: UI.feedback.y + s(28),
+              width: UI.feedback.w,
+              height: UI.feedback.h,
+              fontFamily: "Fredoka, sans-serif",
+              fontSize: s(10),
+              color: "#2f7a43",
+            }}
+          >
+            {language === "fr"
+              ? "Bouillon pret a valider"
+              : "Broth ready to validate"}
+          </div>
+        ) : null}
+
         {/* Guide overlay */}
         <StirGuide direction={direction} cycleMs={cycleMs} />
 
@@ -642,7 +675,7 @@ export default function BrothStirPhase({
         >
           <div
             className="h-full rounded-full bg-gradient-to-r from-[#FF9A1A] to-[#FFD24A]"
-            style={{ width: `${stirProgress}%` }}
+            style={{ width: `${displayedStirProgress}%` }}
           />
           <div
             className="absolute inset-0 flex items-center justify-center text-[10px] text-white"
@@ -651,15 +684,15 @@ export default function BrothStirPhase({
               textShadow: "0 1px 2px rgba(0,0,0,0.35)",
             }}
           >
-            {language === "fr" ? "Remuage" : "Stirring"} {Math.round(stirProgress)}%
+            {language === "fr" ? "Remuage" : "Stirring"} {Math.round(displayedStirProgress)}%
           </div>
         </div>
 
         <motion.button
-          whileTap={stirProgress >= 100 ? { scale: 0.97, y: 2 } : {}}
-          whileHover={stirProgress >= 100 ? { scale: 1.02 } : {}}
+          whileTap={isValidationUnlocked ? { scale: 0.97, y: 2 } : {}}
+          whileHover={isValidationUnlocked ? { scale: 1.02 } : {}}
           onClick={handleValidate}
-          disabled={stirProgress < 100 || isCompleted}
+          disabled={!isValidationUnlocked || isCompleted}
           type="button"
           className="absolute disabled:opacity-55"
           style={{

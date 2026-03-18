@@ -362,7 +362,7 @@ export function CookingPhase({
   onComplete,
   onBack,
   playerName = "Bento-chan",
-  coins = 10,
+  coins = 500,
   level = 1,
   xp = 4,
   xpToNext = 9,
