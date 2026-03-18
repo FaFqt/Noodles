@@ -147,6 +147,17 @@
     font-size: var(--font-size);
   }
 
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  body {
+    min-height: 100dvh;
+    margin: 0;
+  }
+
   h1 {
     font-size: var(--text-2xl);
     font-weight: var(--font-weight-medium);

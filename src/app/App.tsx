@@ -14,6 +14,7 @@ import NoodlesRestaurantScreen from './components/RestaurantScreen';
 import RecipeSelectionScreen, {
   RecipeSelectionItem,
 } from './components/RecipeSelectionScreen';
+import { useIsMobile } from './components/ui/use-mobile';
 import type { Order } from './components/ClientOrder';
 import { RECIPES, getRecipeById, SERVICES_PER_DAY } from './data/recipes';
 
@@ -64,6 +65,7 @@ function shuffleArray<T>(array: T[]): T[] {
 
 export default function App() {
   const RESTAURANT_SERVICE_COOLDOWN_MS = 4 * 60 * 1000;
+  const isMobile = useIsMobile();
 
   const [gameState, setGameState] = useState<GameState>('splash');
 
@@ -356,9 +358,23 @@ export default function App() {
 
   return (
     <LanguageProvider>
-      <div className="min-h-screen bg-[#1c0d04] flex items-center justify-center p-4 md:p-6">
-        <div className="relative mx-auto aspect-[9/16] w-full max-w-[430px] overflow-hidden rounded-[34px] border-[6px] border-[#8D4B24] bg-[#F4E2C7] shadow-2xl">
-          <div className="absolute top-0 left-1/2 z-50 h-5 w-32 -translate-x-1/2 rounded-b-2xl bg-[#2b1408]" />
+      <div
+        className={`flex bg-[#1c0d04] ${
+          isMobile
+            ? 'min-h-dvh w-full items-stretch justify-stretch p-0'
+            : 'min-h-screen items-center justify-center p-4 md:p-6'
+        }`}
+      >
+        <div
+          className={`relative mx-auto overflow-hidden bg-[#F4E2C7] ${
+            isMobile
+              ? 'h-dvh w-full max-w-none rounded-none border-0 shadow-none'
+              : 'aspect-[9/16] w-full max-w-[430px] rounded-[34px] border-[6px] border-[#8D4B24] shadow-2xl'
+          }`}
+        >
+          {!isMobile ? (
+            <div className="absolute top-0 left-1/2 z-50 h-5 w-32 -translate-x-1/2 rounded-b-2xl bg-[#2b1408]" />
+          ) : null}
 
           <AnimatePresence mode="wait">
             {gameState === 'splash' && (
