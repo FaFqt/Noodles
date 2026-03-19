@@ -4,6 +4,8 @@ import { useLanguage } from "../context/LanguageContext";
 import backgroundImage from "../../assets/screens/ServiceScreen.png";
 import buttonStartAsset from "../../assets/ui/SuperButton.svg";
 import GameToolbar from "./GameToolbar";
+const DESIGN_WIDTH = 430;
+const DESIGN_HEIGHT = 780;
 
 interface ServicePhaseProps {
   startingTimeLeftSeconds: number;
@@ -173,6 +175,7 @@ export default function ServicePhase({
 }: ServicePhaseProps) {
   const { language } = useLanguage();
 
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const guideRef = useRef<HTMLDivElement | null>(null);
   const lastPointerPointRef = useRef<Point | null>(null);
   const visitedIndicesRef = useRef<number[]>([]);
@@ -190,6 +193,40 @@ export default function ServicePhase({
   const [toppingParticles, setToppingParticles] = useState<ToppingParticle[]>(
     []
   );
+  const [viewportSize, setViewportSize] = useState({
+    width: DESIGN_WIDTH,
+    height: DESIGN_HEIGHT,
+  });
+
+  useEffect(() => {
+    const updateViewportSize = () => {
+      const rect = rootRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      setViewportSize({
+        width: rect.width,
+        height: rect.height,
+      });
+    };
+
+    updateViewportSize();
+
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => updateViewportSize())
+        : null;
+
+    if (rootRef.current && resizeObserver) {
+      resizeObserver.observe(rootRef.current);
+    }
+
+    window.addEventListener("resize", updateViewportSize);
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", updateViewportSize);
+    };
+  }, []);
 
   const guidePoints = useMemo(
     () => buildGuidePoints(UI.guideZone.w, UI.guideZone.h),
@@ -203,6 +240,14 @@ export default function ServicePhase({
     0,
     timeLeftMs / (startingTimeLeftSeconds * 1000)
   );
+  const layoutScale = Math.min(
+    viewportSize.width / DESIGN_WIDTH,
+    viewportSize.height / DESIGN_HEIGHT
+  );
+  const scaledWidth = DESIGN_WIDTH * layoutScale;
+  const scaledHeight = DESIGN_HEIGHT * layoutScale;
+  const scaledOffsetX = (viewportSize.width - scaledWidth) / 2;
+  const scaledOffsetY = (viewportSize.height - scaledHeight) / 2;
   const progressColor =
     remainingRatio > 0.66
       ? "#39C56D"
@@ -402,7 +447,10 @@ export default function ServicePhase({
   };
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-[#f6dfbf]">
+    <div
+      ref={rootRef}
+      className="relative h-full w-full overflow-hidden bg-[#f6dfbf]"
+    >
       <img
         src={backgroundImage}
         alt="Service background"
@@ -410,286 +458,297 @@ export default function ServicePhase({
         draggable={false}
       />
 
-      <GameToolbar
-        playerName={playerName}
-        coins={coins}
-        level={level}
-        xp={xp}
-        xpToNext={xpToNext}
-        onBack={onBack}
-        onSettings={() => console.log("open settings")}
-      />
-
       <div
-        className="relative z-10 h-full w-full"
-        style={{ paddingTop: UI.contentTop }}
+        className="absolute inset-0 z-10"
+        style={{
+          transform: `translate(${scaledOffsetX}px, ${scaledOffsetY}px) scale(${layoutScale})`,
+          transformOrigin: "top left",
+          width: DESIGN_WIDTH,
+          height: DESIGN_HEIGHT,
+        }}
       >
+        <GameToolbar
+          playerName={playerName}
+          coins={coins}
+          level={level}
+          xp={xp}
+          xpToNext={xpToNext}
+          onBack={onBack}
+          onSettings={() => console.log("open settings")}
+        />
+
         <div
-          className="absolute"
-          style={{
-            left: UI.timerBar.x,
-            top: UI.timerBar.y,
-            width: UI.timerBar.w,
-            height: UI.timerBar.h,
-          }}
+          className="relative h-full w-full"
+          style={{ paddingTop: UI.contentTop }}
         >
           <div
-            className="absolute rounded-full transition-all"
+            className="absolute"
             style={{
-              left: UI.timerBar.fillX,
-              top: UI.timerBar.fillY,
-              width: UI.timerBar.fillW * remainingRatio,
-              height: UI.timerBar.fillH,
-              background: progressColor,
-              boxShadow: `0 0 8px ${progressColor}66`,
-            }}
-          />
-
-          <div
-            className="absolute left-1/2 -translate-x-1/2 text-center leading-none text-white"
-            style={{
-              top: UI.timerBar.textY,
-              fontFamily: "Fredoka, sans-serif",
-              fontSize: s(11),
-              textShadow: "0 1px 2px rgba(0,0,0,0.35)",
+              left: UI.timerBar.x,
+              top: UI.timerBar.y,
+              width: UI.timerBar.w,
+              height: UI.timerBar.h,
             }}
           >
-            {formatSeconds(timeLeftMs / 1000)}
-          </div>
-        </div>
-
-        {toppingParticles.map((particle) => (
-          <motion.div
-            key={particle.id}
-            className="absolute pointer-events-none rounded-full"
-            style={{
-              left: particle.x,
-              top: particle.y,
-              width: particle.size,
-              height: particle.size * 0.72,
-              background: particle.color,
-              boxShadow: `0 0 6px ${particle.color}66`,
-              transformOrigin: "center",
-            }}
-            initial={{
-              x: 0,
-              y: 0,
-              opacity: 0,
-              scale: 0.7,
-              rotate: 0,
-            }}
-            animate={{
-              x: particle.dx - particle.x,
-              y: particle.dy - particle.y,
-              opacity: [0, 1, 0.95, 0],
-              scale: [0.7, 1, 0.95, 0.85],
-              rotate: particle.rotate,
-            }}
-            transition={{
-              duration: particle.duration,
-              delay: particle.delay,
-              ease: "easeIn",
-            }}
-          />
-        ))}
-
-        {/* Hint bubble */}
-        <div
-          className="absolute rounded-[18px] bg-[#fff1df] px-4 py-2 text-center shadow-[0_4px_0_rgba(203,168,131,0.45)]"
-          style={{
-            left: UI.hintBubble.x,
-            top: UI.hintBubble.y,
-            width: UI.hintBubble.w,
-            height: UI.hintBubble.h,
-          }}
-        >
-          <div
-            className="text-[14px] leading-none text-[#5c2f15]"
-            style={{ fontFamily: "Fredoka, sans-serif", fontWeight: 700 }}
-          >
-            {titleText}
-          </div>
-          <div
-            className="mt-[4px] text-[10px] leading-none text-[#5c2f15]"
-            style={{ fontFamily: "Fredoka, sans-serif" }}
-          >
-            {subtitleText}
-          </div>
-        </div>
-
-        {/* Swipe guide */}
-        <div
-          ref={guideRef}
-          className="absolute"
-          style={{
-            left: UI.guideZone.x,
-            top: UI.guideZone.y,
-            width: UI.guideZone.w,
-            height: UI.guideZone.h,
-          }}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
-        >
-          <svg
-            viewBox={`0 0 ${UI.guideZone.w} ${UI.guideZone.h}`}
-            className="h-full w-full"
-          >
-            {/* Tracé orange */}
-            <path
-              d={guidePath}
-              fill="none"
-              stroke="#FF8B18"
-              strokeWidth={UI.traceStrokeWidth}
-              strokeLinecap="round"
-              strokeLinejoin="round"
+            <div
+              className="absolute rounded-full transition-all"
+              style={{
+                left: UI.timerBar.fillX,
+                top: UI.timerBar.fillY,
+                width: UI.timerBar.fillW * remainingRatio,
+                height: UI.timerBar.fillH,
+                background: progressColor,
+                boxShadow: `0 0 8px ${progressColor}66`,
+              }}
             />
 
-            {/* Pointillés verts */}
-            <path
-              d={guidePath}
-              fill="none"
-              stroke="#67D45A"
-              strokeWidth={UI.traceDashStrokeWidth}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeDasharray="12 10"
+            <div
+              className="absolute left-1/2 -translate-x-1/2 text-center leading-none text-white"
+              style={{
+                top: UI.timerBar.textY,
+                fontFamily: "Fredoka, sans-serif",
+                fontSize: s(11),
+                textShadow: "0 1px 2px rgba(0,0,0,0.35)",
+              }}
+            >
+              {formatSeconds(timeLeftMs / 1000)}
+            </div>
+          </div>
+
+          {toppingParticles.map((particle) => (
+            <motion.div
+              key={particle.id}
+              className="absolute pointer-events-none rounded-full"
+              style={{
+                left: particle.x,
+                top: particle.y,
+                width: particle.size,
+                height: particle.size * 0.72,
+                background: particle.color,
+                boxShadow: `0 0 6px ${particle.color}66`,
+                transformOrigin: "center",
+              }}
+              initial={{
+                x: 0,
+                y: 0,
+                opacity: 0,
+                scale: 0.7,
+                rotate: 0,
+              }}
+              animate={{
+                x: particle.dx - particle.x,
+                y: particle.dy - particle.y,
+                opacity: [0, 1, 0.95, 0],
+                scale: [0.7, 1, 0.95, 0.85],
+                rotate: particle.rotate,
+              }}
+              transition={{
+                duration: particle.duration,
+                delay: particle.delay,
+                ease: "easeIn",
+              }}
             />
+          ))}
 
-            {/* Flèche de fin */}
-            {guidePoints.length > 1 && (() => {
-              const last = guidePoints[guidePoints.length - 1];
-              const prev = guidePoints[guidePoints.length - 2];
-              const angle = Math.atan2(last.y - prev.y, last.x - prev.x);
-              const size = 18;
+          {/* Hint bubble */}
+          <div
+            className="absolute rounded-[18px] bg-[#fff1df] px-4 py-2 text-center shadow-[0_4px_0_rgba(203,168,131,0.45)]"
+            style={{
+              left: UI.hintBubble.x,
+              top: UI.hintBubble.y,
+              width: UI.hintBubble.w,
+              height: UI.hintBubble.h,
+            }}
+          >
+            <div
+              className="text-[14px] leading-none text-[#5c2f15]"
+              style={{ fontFamily: "Fredoka, sans-serif", fontWeight: 700 }}
+            >
+              {titleText}
+            </div>
+            <div
+              className="mt-[4px] text-[10px] leading-none text-[#5c2f15]"
+              style={{ fontFamily: "Fredoka, sans-serif" }}
+            >
+              {subtitleText}
+            </div>
+          </div>
 
-              const p1 = `${last.x},${last.y}`;
-              const p2 = `${last.x - size * Math.cos(angle - Math.PI / 6)},${
-                last.y - size * Math.sin(angle - Math.PI / 6)
-              }`;
-              const p3 = `${last.x - size * Math.cos(angle + Math.PI / 6)},${
-                last.y - size * Math.sin(angle + Math.PI / 6)
-              }`;
-
-              return <polygon points={`${p1} ${p2} ${p3}`} fill="#67D45A" />;
-            })()}
-          </svg>
-
-          {/* Progress highlight */}
-          <motion.div
-            className="absolute inset-0 pointer-events-none"
-            animate={{ opacity: [0.65, 1, 0.65] }}
-            transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+          {/* Swipe guide */}
+          <div
+            ref={guideRef}
+            className="absolute"
+            style={{
+              left: UI.guideZone.x - s(14),
+              top: UI.guideZone.y - s(12),
+              width: UI.guideZone.w + s(28),
+              height: UI.guideZone.h + s(24),
+              touchAction: "none",
+            }}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
           >
             <svg
               viewBox={`0 0 ${UI.guideZone.w} ${UI.guideZone.h}`}
               className="h-full w-full"
             >
+              {/* Tracé orange */}
               <path
                 d={guidePath}
                 fill="none"
-                stroke="#FFF4DE"
-                strokeWidth={4}
+                stroke="#FF8B18"
+                strokeWidth={UI.traceStrokeWidth}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeDasharray={`${Math.max(
-                  10,
-                  (serviceProgress / 100) * 500
-                )} 1000`}
               />
+
+              {/* Pointillés verts */}
+              <path
+                d={guidePath}
+                fill="none"
+                stroke="#67D45A"
+                strokeWidth={UI.traceDashStrokeWidth}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeDasharray="12 10"
+              />
+
+              {/* Flèche de fin */}
+              {guidePoints.length > 1 && (() => {
+                const last = guidePoints[guidePoints.length - 1];
+                const prev = guidePoints[guidePoints.length - 2];
+                const angle = Math.atan2(last.y - prev.y, last.x - prev.x);
+                const size = 18;
+
+                const p1 = `${last.x},${last.y}`;
+                const p2 = `${last.x - size * Math.cos(angle - Math.PI / 6)},${
+                  last.y - size * Math.sin(angle - Math.PI / 6)
+                }`;
+                const p3 = `${last.x - size * Math.cos(angle + Math.PI / 6)},${
+                  last.y - size * Math.sin(angle + Math.PI / 6)
+                }`;
+
+                return <polygon points={`${p1} ${p2} ${p3}`} fill="#67D45A" />;
+              })()}
             </svg>
-          </motion.div>
 
-          {sparkPoint ? (
+            {/* Progress highlight */}
             <motion.div
-              className="absolute rounded-full bg-white/80 pointer-events-none"
-              style={{
-                left: sparkPoint.x - 8,
-                top: sparkPoint.y - 8,
-                width: 16,
-                height: 16,
-              }}
-              initial={{ scale: 0.5, opacity: 0.8 }}
-              animate={{ scale: 1.4, opacity: 0 }}
-              transition={{ duration: 0.25 }}
-            />
-          ) : null}
-        </div>
+              className="absolute inset-0 pointer-events-none"
+              animate={{ opacity: [0.65, 1, 0.65] }}
+              transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <svg
+                viewBox={`0 0 ${UI.guideZone.w} ${UI.guideZone.h}`}
+                className="h-full w-full"
+              >
+                <path
+                  d={guidePath}
+                  fill="none"
+                  stroke="#FFF4DE"
+                  strokeWidth={4}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeDasharray={`${Math.max(
+                    10,
+                    (serviceProgress / 100) * 500
+                  )} 1000`}
+                />
+              </svg>
+            </motion.div>
 
-        {/* Progress / quality text */}
-        <div
-          className="absolute text-center text-[#fff6eb]"
-          style={{
-            left: UI.progressText.x,
-            top: UI.progressText.y,
-            width: UI.progressText.w,
-            height: UI.progressText.h,
-            fontFamily: "Fredoka, sans-serif",
-            fontSize: s(11),
-            textShadow: "0 1px 2px rgba(0,0,0,0.35)",
-          }}
-        >
-          {progressLabel} · {language === "fr" ? "Qualité" : "Quality"}{" "}
-          {Math.round(quality)}%
-        </div>
-
-        {feedback ? (
-          <div
-            className="absolute left-1/2 top-[474px] -translate-x-1/2 rounded-full bg-[#fff7ea]/95 px-3 py-[3px] text-center shadow"
-            style={{
-              fontFamily: "Fredoka, sans-serif",
-              fontSize: s(10),
-              color: "#6a3718",
-            }}
-          >
-            {feedback}
+            {sparkPoint ? (
+              <motion.div
+                className="absolute rounded-full bg-white/80 pointer-events-none"
+                style={{
+                  left: sparkPoint.x - 8,
+                  top: sparkPoint.y - 8,
+                  width: 16,
+                  height: 16,
+                }}
+                initial={{ scale: 0.5, opacity: 0.8 }}
+                animate={{ scale: 1.4, opacity: 0 }}
+                transition={{ duration: 0.25 }}
+              />
+            ) : null}
           </div>
-        ) : null}
 
-        {/* Validate / serve button */}
-        <motion.button
-          whileTap={completed ? { scale: 0.97, y: 2 } : {}}
-          whileHover={completed ? { scale: 1.02 } : {}}
-          onClick={handleValidate}
-          disabled={!completed}
-          type="button"
-          className="absolute disabled:opacity-55"
-          style={{
-            left: UI.validateButton.x,
-            top: UI.validateButton.y,
-            width: UI.validateButton.w,
-            height: UI.validateButton.h,
-            filter:
-              "drop-shadow(0 6px 0 #8A4A20) drop-shadow(0 10px 18px rgba(0,0,0,0.22))",
-          }}
-        >
-          {buttonStartAsset ? (
-            <img
-              src={buttonStartAsset}
-              alt={buttonText}
-              draggable={false}
-              className="h-full w-full object-fill"
-            />
-          ) : (
-            <div className="h-full w-full rounded-full bg-[#b6662b]" />
-          )}
-
-          <span
-            className="absolute inset-0 flex items-center justify-center select-none"
+          {/* Progress / quality text */}
+          <div
+            className="absolute text-center text-[#fff6eb]"
             style={{
+              left: UI.progressText.x,
+              top: UI.progressText.y,
+              width: UI.progressText.w,
+              height: UI.progressText.h,
               fontFamily: "Fredoka, sans-serif",
-              fontSize: s(14),
-              color: "#FFFFFF",
-              textShadow:
-                "0 2px 8px rgba(0,0,0,0.5), 0 0 10px rgba(120,55,10,0.15)",
-              letterSpacing: "0.02em",
-              transform: "translateY(-5px)",
+              fontSize: s(11),
+              textShadow: "0 1px 2px rgba(0,0,0,0.35)",
             }}
           >
-            {buttonText}
-          </span>
-        </motion.button>
+            {progressLabel} · {language === "fr" ? "Qualité" : "Quality"}{" "}
+            {Math.round(quality)}%
+          </div>
+
+          {feedback ? (
+            <div
+              className="absolute left-1/2 top-[474px] -translate-x-1/2 rounded-full bg-[#fff7ea]/95 px-3 py-[3px] text-center shadow"
+              style={{
+                fontFamily: "Fredoka, sans-serif",
+                fontSize: s(10),
+                color: "#6a3718",
+              }}
+            >
+              {feedback}
+            </div>
+          ) : null}
+
+          {/* Validate / serve button */}
+          <motion.button
+            whileTap={completed ? { scale: 0.97, y: 2 } : {}}
+            whileHover={completed ? { scale: 1.02 } : {}}
+            onClick={handleValidate}
+            disabled={!completed}
+            type="button"
+            className="absolute disabled:opacity-55"
+            style={{
+              left: UI.validateButton.x,
+              top: UI.validateButton.y,
+              width: UI.validateButton.w,
+              height: UI.validateButton.h,
+              filter:
+                "drop-shadow(0 6px 0 #8A4A20) drop-shadow(0 10px 18px rgba(0,0,0,0.22))",
+            }}
+          >
+            {buttonStartAsset ? (
+              <img
+                src={buttonStartAsset}
+                alt={buttonText}
+                draggable={false}
+                className="h-full w-full object-fill"
+              />
+            ) : (
+              <div className="h-full w-full rounded-full bg-[#b6662b]" />
+            )}
+
+            <span
+              className="absolute inset-0 flex items-center justify-center select-none"
+              style={{
+                fontFamily: "Fredoka, sans-serif",
+                fontSize: s(14),
+                color: "#FFFFFF",
+                textShadow:
+                  "0 2px 8px rgba(0,0,0,0.5), 0 0 10px rgba(120,55,10,0.15)",
+                letterSpacing: "0.02em",
+                transform: "translateY(-5px)",
+              }}
+            >
+              {buttonText}
+            </span>
+          </motion.button>
+        </div>
       </div>
     </div>
   );

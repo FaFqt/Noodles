@@ -364,13 +364,31 @@ export default function App() {
             ? 'min-h-dvh w-full items-stretch justify-stretch p-0'
             : 'min-h-screen items-center justify-center p-4 md:p-6'
         }`}
+        style={
+          isMobile
+            ? {
+                paddingTop: "var(--safe-area-top)",
+                paddingRight: "var(--safe-area-right)",
+                paddingBottom: "calc(var(--safe-area-bottom) + 12px)",
+                paddingLeft: "var(--safe-area-left)",
+              }
+            : undefined
+        }
       >
         <div
           className={`relative mx-auto overflow-hidden bg-[#F4E2C7] ${
             isMobile
-              ? 'h-dvh w-full max-w-none rounded-none border-0 shadow-none'
+              ? 'min-h-0 w-full max-w-none flex-1 rounded-none border-0 shadow-none'
               : 'aspect-[9/16] w-full max-w-[430px] rounded-[34px] border-[6px] border-[#8D4B24] shadow-2xl'
           }`}
+          style={
+            isMobile
+              ? {
+                  minHeight:
+                    'calc(100dvh - var(--safe-area-top) - var(--safe-area-bottom) - 12px)',
+                }
+              : undefined
+          }
         >
           {!isMobile ? (
             <div className="absolute top-0 left-1/2 z-50 h-5 w-32 -translate-x-1/2 rounded-b-2xl bg-[#2b1408]" />

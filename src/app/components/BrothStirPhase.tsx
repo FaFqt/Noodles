@@ -37,6 +37,8 @@ function findAssetByFilename(filename: string): string | undefined {
 }
 
 const buttonStartAsset = findAssetByFilename("ButtonStart.png");
+const DESIGN_WIDTH = 430;
+const DESIGN_HEIGHT = 780;
 
 const SCALE = 1;
 const s = (value: number) => value * SCALE;
@@ -283,6 +285,10 @@ export default function BrothStirPhase({
 
   const rootRef = useRef<HTMLDivElement | null>(null);
   const stirZoneRef = useRef<HTMLDivElement | null>(null);
+  const [viewportSize, setViewportSize] = useState({
+    width: DESIGN_WIDTH,
+    height: DESIGN_HEIGHT,
+  });
 
   const [direction] = useState<Direction>(() =>
     Math.random() > 0.5 ? "cw" : "ccw"
@@ -308,6 +314,36 @@ export default function BrothStirPhase({
   const penaltyCooldownRef = useRef(0);
   const feedbackCooldownRef = useRef(0);
 
+  useEffect(() => {
+    const updateViewportSize = () => {
+      const rect = rootRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      setViewportSize({
+        width: rect.width,
+        height: rect.height,
+      });
+    };
+
+    updateViewportSize();
+
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => updateViewportSize())
+        : null;
+
+    if (rootRef.current && resizeObserver) {
+      resizeObserver.observe(rootRef.current);
+    }
+
+    window.addEventListener("resize", updateViewportSize);
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", updateViewportSize);
+    };
+  }, []);
+
   const remainingRatio = Math.max(
     0,
     timeLeftMs / (startingTimeLeftSeconds * 1000)
@@ -315,6 +351,14 @@ export default function BrothStirPhase({
   const displayedStirProgress = isValidationUnlocked
     ? 100
     : clamp(stirProgress, 0, 100);
+  const layoutScale = Math.min(
+    viewportSize.width / DESIGN_WIDTH,
+    viewportSize.height / DESIGN_HEIGHT
+  );
+  const scaledWidth = DESIGN_WIDTH * layoutScale;
+  const scaledHeight = DESIGN_HEIGHT * layoutScale;
+  const scaledOffsetX = (viewportSize.width - scaledWidth) / 2;
+  const scaledOffsetY = (viewportSize.height - scaledHeight) / 2;
 
   const progressColor =
     remainingRatio > 0.66
@@ -514,221 +558,232 @@ export default function BrothStirPhase({
         draggable={false}
         />
 
-      <GameToolbar
-        playerName={playerName}
-        coins={coins}
-        level={level}
-        xp={xp}
-        xpToNext={xpToNext}
-        onBack={onBack}
-        onSettings={() => console.log("open settings")}
-      />
-
       <div
-        className="relative z-10 h-full w-full"
-        style={{ paddingTop: UI.contentTop }}
+        className="absolute inset-0 z-10"
+        style={{
+          transform: `translate(${scaledOffsetX}px, ${scaledOffsetY}px) scale(${layoutScale})`,
+          transformOrigin: "top left",
+          width: DESIGN_WIDTH,
+          height: DESIGN_HEIGHT,
+        }}
       >
-        {/* Time progress */}
-        <div
-          className="absolute"
-          style={{
-            left: UI.timerBar.x,
-            top: UI.timerBar.y,
-            width: UI.timerBar.w,
-            height: UI.timerBar.h,
-          }}
-        >
-          <div
-            className="absolute rounded-full transition-all"
-            style={{
-              left: UI.timerBar.fillX,
-              top: UI.timerBar.fillY,
-              width: UI.timerBar.fillW * remainingRatio,
-              height: UI.timerBar.fillH,
-              background: progressColor,
-              boxShadow: `0 0 8px ${progressColor}66`,
-            }}
-          />
-
-          <div
-            className="absolute left-1/2 -translate-x-1/2 text-center leading-none text-white"
-            style={{
-              top: UI.timerBar.textY,
-              fontFamily: "Fredoka, sans-serif",
-              fontSize: s(11),
-              textShadow: "0 1px 2px rgba(0,0,0,0.35)",
-            }}
-          >
-            {formatSeconds(timeLeftMs / 1000)}
-          </div>
-        </div>
-
-        {/* Hint bubble */}
-        <div
-          className="absolute rounded-[18px] bg-[#fff1df] px-4 py-2 text-center shadow-[0_4px_0_rgba(203,168,131,0.45)]"
-          style={{
-            left: UI.hintBubble.x,
-            top: UI.hintBubble.y,
-            width: UI.hintBubble.w,
-            height: UI.hintBubble.h,
-          }}
-        >
-          <div
-            className="text-[14px] leading-none text-[#5c2f15]"
-            style={{ fontFamily: "Fredoka, sans-serif", fontWeight: 700 }}
-          >
-            {language === "fr" ? "REMUER LE BOUILLON !" : "STIR THE BROTH!"}
-          </div>
-          <div
-            className="mt-[4px] text-[10px] leading-none text-[#5c2f15]"
-            style={{ fontFamily: "Fredoka, sans-serif" }}
-          >
-            {language === "fr" ? "Suivre le rythme" : "Follow the rhythm"}
-          </div>
-        </div>
-
-        {/* Feedback */}
-        {feedback ? (
-          <div
-            className="absolute rounded-full bg-[#fff7ea]/95 px-3 py-[3px] text-center shadow"
-            style={{
-              left: UI.feedback.x,
-              top: UI.feedback.y,
-              width: UI.feedback.w,
-              height: UI.feedback.h,
-              fontFamily: "Fredoka, sans-serif",
-              fontSize: s(10),
-              color: "#6a3718",
-            }}
-          >
-            {feedback}
-          </div>
-        ) : null}
-
-        {isValidationUnlocked && !isCompleted ? (
-          <div
-            className="absolute rounded-full bg-[#fff7ea]/95 px-3 py-[3px] text-center shadow"
-            style={{
-              left: UI.feedback.x,
-              top: UI.feedback.y + s(28),
-              width: UI.feedback.w,
-              height: UI.feedback.h,
-              fontFamily: "Fredoka, sans-serif",
-              fontSize: s(10),
-              color: "#2f7a43",
-            }}
-          >
-            {language === "fr"
-              ? "Bouillon pret a valider"
-              : "Broth ready to validate"}
-          </div>
-        ) : null}
-
-        {/* Guide overlay */}
-        <StirGuide direction={direction} cycleMs={cycleMs} />
-
-        {/* Touch zone */}
-        <div
-          ref={stirZoneRef}
-          className="absolute rounded-full"
-          style={{
-            left: UI.stirTouchZone.x,
-            top: UI.stirTouchZone.y,
-            width: UI.stirTouchZone.w,
-            height: UI.stirTouchZone.h,
-          }}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
+        <GameToolbar
+          playerName={playerName}
+          coins={coins}
+          level={level}
+          xp={xp}
+          xpToNext={xpToNext}
+          onBack={onBack}
+          onSettings={() => console.log("open settings")}
         />
 
-        {/* Status line */}
         <div
-          className="absolute flex items-center justify-between text-[#fff3e0]"
-          style={{
-            left: UI.statusLine.x,
-            top: UI.statusLine.y,
-            width: UI.statusLine.w,
-            height: UI.statusLine.h,
-            fontFamily: "Fredoka, sans-serif",
-            fontSize: s(10),
-            textShadow: "0 1px 2px rgba(0,0,0,0.35)",
-          }}
+          className="relative h-full w-full"
+          style={{ paddingTop: UI.contentTop }}
         >
-          <span>{currentDirectionLabel}</span>
-          <span>{currentRhythmLabel}</span>
-          <span>
-            {language === "fr" ? "Malus XP" : "XP Penalty"}: {xpPenalty}
-          </span>
-        </div>
-
-        {/* Stir progress */}
-        <div
-          className="absolute overflow-hidden rounded-full border border-[#5b2b14] bg-[#4a1f10]/65"
-          style={{
-            left: UI.stirProgressBar.x,
-            top: UI.stirProgressBar.y,
-            width: UI.stirProgressBar.w,
-            height: UI.stirProgressBar.h,
-          }}
-        >
+          {/* Time progress */}
           <div
-            className="h-full rounded-full bg-gradient-to-r from-[#FF9A1A] to-[#FFD24A]"
-            style={{ width: `${displayedStirProgress}%` }}
-          />
-          <div
-            className="absolute inset-0 flex items-center justify-center text-[10px] text-white"
+            className="absolute"
             style={{
+              left: UI.timerBar.x,
+              top: UI.timerBar.y,
+              width: UI.timerBar.w,
+              height: UI.timerBar.h,
+            }}
+          >
+            <div
+              className="absolute rounded-full transition-all"
+              style={{
+                left: UI.timerBar.fillX,
+                top: UI.timerBar.fillY,
+                width: UI.timerBar.fillW * remainingRatio,
+                height: UI.timerBar.fillH,
+                background: progressColor,
+                boxShadow: `0 0 8px ${progressColor}66`,
+              }}
+            />
+
+            <div
+              className="absolute left-1/2 -translate-x-1/2 text-center leading-none text-white"
+              style={{
+                top: UI.timerBar.textY,
+                fontFamily: "Fredoka, sans-serif",
+                fontSize: s(11),
+                textShadow: "0 1px 2px rgba(0,0,0,0.35)",
+              }}
+            >
+              {formatSeconds(timeLeftMs / 1000)}
+            </div>
+          </div>
+
+          {/* Hint bubble */}
+          <div
+            className="absolute rounded-[18px] bg-[#fff1df] px-4 py-2 text-center shadow-[0_4px_0_rgba(203,168,131,0.45)]"
+            style={{
+              left: UI.hintBubble.x,
+              top: UI.hintBubble.y,
+              width: UI.hintBubble.w,
+              height: UI.hintBubble.h,
+            }}
+          >
+            <div
+              className="text-[14px] leading-none text-[#5c2f15]"
+              style={{ fontFamily: "Fredoka, sans-serif", fontWeight: 700 }}
+            >
+              {language === "fr" ? "REMUER LE BOUILLON !" : "STIR THE BROTH!"}
+            </div>
+            <div
+              className="mt-[4px] text-[10px] leading-none text-[#5c2f15]"
+              style={{ fontFamily: "Fredoka, sans-serif" }}
+            >
+              {language === "fr" ? "Suivre le rythme" : "Follow the rhythm"}
+            </div>
+          </div>
+
+          {/* Feedback */}
+          {feedback ? (
+            <div
+              className="absolute rounded-full bg-[#fff7ea]/95 px-3 py-[3px] text-center shadow"
+              style={{
+                left: UI.feedback.x,
+                top: UI.feedback.y,
+                width: UI.feedback.w,
+                height: UI.feedback.h,
+                fontFamily: "Fredoka, sans-serif",
+                fontSize: s(10),
+                color: "#6a3718",
+              }}
+            >
+              {feedback}
+            </div>
+          ) : null}
+
+          {isValidationUnlocked && !isCompleted ? (
+            <div
+              className="absolute rounded-full bg-[#fff7ea]/95 px-3 py-[3px] text-center shadow"
+              style={{
+                left: UI.feedback.x,
+                top: UI.feedback.y + s(28),
+                width: UI.feedback.w,
+                height: UI.feedback.h,
+                fontFamily: "Fredoka, sans-serif",
+                fontSize: s(10),
+                color: "#2f7a43",
+              }}
+            >
+              {language === "fr"
+                ? "Bouillon pret a valider"
+                : "Broth ready to validate"}
+            </div>
+          ) : null}
+
+          {/* Guide overlay */}
+          <StirGuide direction={direction} cycleMs={cycleMs} />
+
+          {/* Touch zone */}
+          <div
+            ref={stirZoneRef}
+            className="absolute rounded-full"
+            style={{
+              left: UI.stirTouchZone.x - s(16),
+              top: UI.stirTouchZone.y - s(18),
+              width: UI.stirTouchZone.w + s(32),
+              height: UI.stirTouchZone.h + s(36),
+              touchAction: "none",
+            }}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
+          />
+
+          {/* Status line */}
+          <div
+            className="absolute flex items-center justify-between text-[#fff3e0]"
+            style={{
+              left: UI.statusLine.x,
+              top: UI.statusLine.y,
+              width: UI.statusLine.w,
+              height: UI.statusLine.h,
               fontFamily: "Fredoka, sans-serif",
+              fontSize: s(10),
               textShadow: "0 1px 2px rgba(0,0,0,0.35)",
             }}
           >
-            {language === "fr" ? "Remuage" : "Stirring"} {Math.round(displayedStirProgress)}%
+            <span>{currentDirectionLabel}</span>
+            <span>{currentRhythmLabel}</span>
+            <span>
+              {language === "fr" ? "Malus XP" : "XP Penalty"}: {xpPenalty}
+            </span>
           </div>
-        </div>
 
-        <motion.button
-          whileTap={isValidationUnlocked ? { scale: 0.97, y: 2 } : {}}
-          whileHover={isValidationUnlocked ? { scale: 1.02 } : {}}
-          onClick={handleValidate}
-          disabled={!isValidationUnlocked || isCompleted}
-          type="button"
-          className="absolute disabled:opacity-55"
-          style={{
-            left: UI.validateButton.x,
-            top: UI.validateButton.y,
-            width: UI.validateButton.w,
-            height: UI.validateButton.h,
-            filter:
-              "drop-shadow(0 6px 0 #8A4A20) drop-shadow(0 10px 18px rgba(0,0,0,0.22))",
-          }}
-        >
-          {buttonStartAsset ? (
-            <img
-              src={buttonStartAsset}
-              alt={language === "fr" ? "Valider" : "Validate"}
-              draggable={false}
-              className="h-full w-full object-fill"
-            />
-          ) : (
-            <div className="h-full w-full rounded-full bg-[#b6662b]" />
-          )}
-
-          <span
-            className="absolute inset-0 flex items-center justify-center select-none"
+          {/* Stir progress */}
+          <div
+            className="absolute overflow-hidden rounded-full border border-[#5b2b14] bg-[#4a1f10]/65"
             style={{
-              fontFamily: "Fredoka, sans-serif",
-              fontSize: s(14),
-              color: "#FFFFFF",
-              textShadow:
-                "0 2px 8px rgba(0,0,0,0.5), 0 0 10px rgba(120,55,10,0.15)",
-              letterSpacing: "0.02em",
+              left: UI.stirProgressBar.x,
+              top: UI.stirProgressBar.y,
+              width: UI.stirProgressBar.w,
+              height: UI.stirProgressBar.h,
             }}
           >
-            {language === "fr" ? "VALIDER" : "VALIDATE"}
-          </span>
-        </motion.button>
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-[#FF9A1A] to-[#FFD24A]"
+              style={{ width: `${displayedStirProgress}%` }}
+            />
+            <div
+              className="absolute inset-0 flex items-center justify-center text-[10px] text-white"
+              style={{
+                fontFamily: "Fredoka, sans-serif",
+                textShadow: "0 1px 2px rgba(0,0,0,0.35)",
+              }}
+            >
+              {language === "fr" ? "Remuage" : "Stirring"} {Math.round(displayedStirProgress)}%
+            </div>
+          </div>
+
+          <motion.button
+            whileTap={isValidationUnlocked ? { scale: 0.97, y: 2 } : {}}
+            whileHover={isValidationUnlocked ? { scale: 1.02 } : {}}
+            onClick={handleValidate}
+            disabled={!isValidationUnlocked || isCompleted}
+            type="button"
+            className="absolute disabled:opacity-55"
+            style={{
+              left: UI.validateButton.x,
+              top: UI.validateButton.y,
+              width: UI.validateButton.w,
+              height: UI.validateButton.h,
+              filter:
+                "drop-shadow(0 6px 0 #8A4A20) drop-shadow(0 10px 18px rgba(0,0,0,0.22))",
+            }}
+          >
+            {buttonStartAsset ? (
+              <img
+                src={buttonStartAsset}
+                alt={language === "fr" ? "Valider" : "Validate"}
+                draggable={false}
+                className="h-full w-full object-fill"
+              />
+            ) : (
+              <div className="h-full w-full rounded-full bg-[#b6662b]" />
+            )}
+
+            <span
+              className="absolute inset-0 flex items-center justify-center select-none"
+              style={{
+                fontFamily: "Fredoka, sans-serif",
+                fontSize: s(14),
+                color: "#FFFFFF",
+                textShadow:
+                  "0 2px 8px rgba(0,0,0,0.5), 0 0 10px rgba(120,55,10,0.15)",
+                letterSpacing: "0.02em",
+              }}
+            >
+              {language === "fr" ? "VALIDER" : "VALIDATE"}
+            </span>
+          </motion.button>
+        </div>
       </div>
     </div>
   );
