@@ -52,14 +52,14 @@ const UI = {
   contentTop: 76,
 
   ribbon: {
-    x: 22,
+    x: 30,
     y: 70,
     w: 368,
     h: 86,
   },
 
   cardsArea: {
-    x: 22,
+    x: 30,
     y: 150,
     w: 368,
     h: 410,
@@ -73,7 +73,7 @@ const UI = {
   ] as RecipeFrame[],
 
   footer: {
-    x: 22,
+    x: 30,
     y: 580,
     w: 368,
     h: 56,

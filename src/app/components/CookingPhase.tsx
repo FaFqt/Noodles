@@ -135,28 +135,28 @@ const UI = {
   },
 
   benchArea: {
-    x: s(62),
+    x: s(70),
     y: s(410),
     w: s(300),
     h: s(220),
   },
 
   benchSlots: [
-    { x: s(0), y: s(0), w: s(64), h: s(64), scale: 1 },
-    { x: s(106), y: s(0), w: s(64), h: s(64), scale: 1 },
-    { x: s(212), y: s(0), w: s(64), h: s(64), scale: 1 },
+    { x: s(0), y: s(0), w: s(72), h: s(72), scale: 1 },
+    { x: s(102), y: s(0), w: s(72), h: s(72), scale: 1 },
+    { x: s(204), y: s(0), w: s(72), h: s(72), scale: 1 },
 
-    { x: s(0), y: s(76), w: s(64), h: s(64), scale: 1 },
-    { x: s(106), y: s(76), w: s(64), h: s(64), scale: 1 },
-    { x: s(212), y: s(76), w: s(64), h: s(64), scale: 1 },
+    { x: s(0), y: s(74), w: s(72), h: s(72), scale: 1 },
+    { x: s(102), y: s(74), w: s(72), h: s(72), scale: 1 },
+    { x: s(204), y: s(74), w: s(72), h: s(72), scale: 1 },
 
-    { x: s(0), y: s(152), w: s(64), h: s(64), scale: 1 },
-    { x: s(106), y: s(152), w: s(64), h: s(64), scale: 1 },
-    { x: s(212), y: s(152), w: s(64), h: s(64), scale: 1 },
+    { x: s(0), y: s(148), w: s(72), h: s(72), scale: 1 },
+    { x: s(102), y: s(148), w: s(72), h: s(72), scale: 1 },
+    { x: s(204), y: s(148), w: s(72), h: s(72), scale: 1 },
   ],
 
   validateButton: {
-    x: s(112),
+    x: s(105),
     y: s(660),
     w: s(196),
     h: s(56),
@@ -290,7 +290,7 @@ function BenchTile({
         <img
           src={benchAsset}
           alt={ingredientDisplayName(ingredientId, language)}
-          className="max-h-[100%] max-w-[95%] object-contain select-none"
+          className="max-h-full max-w-full object-contain select-none"
           draggable={false}
         />
       ) : (

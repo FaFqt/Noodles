@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { LanguageProvider } from './context/LanguageContext';
 import { SplashScreen } from './components/SplashScreen';
@@ -16,6 +16,11 @@ import RecipeSelectionScreen, {
 } from './components/RecipeSelectionScreen';
 import { useIsMobile } from './components/ui/use-mobile';
 import type { Order } from './types/order';
+import {
+  applyXpGain,
+  getXpToNextLevel,
+  type LevelRewardDefinition,
+} from './data/progression';
 import { RECIPES, getRecipeById, SERVICES_PER_DAY } from './data/recipes';
 
 // Assets ramen
@@ -38,8 +43,8 @@ type GameState =
   | 'cooking'
   | 'brothStir'
   | 'service'
-  | 'reward'
-  | 'dayReward';
+  | 'satisfaction'
+  | 'reward';
 
 const RECIPE_IMAGES: Record<string, string> = {
   'ramen-shoyu-classic': ramenShoyuClassic,
@@ -73,7 +78,7 @@ export default function App() {
     name: 'Bento-chan',
     level: 1,
     xp: 0,
-    xpToNext: 100,
+    xpToNext: getXpToNextLevel(1),
     stars: 4,
     maxStars: 15,
     coins: 10,
@@ -104,11 +109,30 @@ export default function App() {
     { quality: number; xp: number; timeSeconds: number }[]
   >([]);
   const [restaurantServicePausedUntil, setRestaurantServicePausedUntil] =
-    useState<number | null>(null);
+    useState<number | null>(() => {
+      if (typeof window === 'undefined') return null;
+
+      const rawValue = window.localStorage.getItem('restaurantServicePausedUntil');
+      if (!rawValue) return null;
+
+      const parsedValue = Number(rawValue);
+      if (!Number.isFinite(parsedValue)) return null;
+
+      return parsedValue > Date.now() ? parsedValue : null;
+    });
+  const [restaurantServiceSlotsVisible, setRestaurantServiceSlotsVisible] =
+    useState<boolean>(() => {
+      if (typeof window === 'undefined') return false;
+      return window.localStorage.getItem('restaurantServiceSlotsVisible') === 'true';
+    });
   const [tipJarTokensAvailable, setTipJarTokensAvailable] = useState(0);
   const [tipJarCollected, setTipJarCollected] = useState(false);
   const [restaurantRewardFeaturesUnlocked, setRestaurantRewardFeaturesUnlocked] =
     useState(false);
+  const [claimedLevelRewardIds, setClaimedLevelRewardIds] = useState<string[]>([]);
+  const [pendingLevelRewards, setPendingLevelRewards] = useState<
+    { reward: LevelRewardDefinition; level: number }[]
+  >([]);
 
   const allRecipeCards: RecipeSelectionItem[] = useMemo(
     () =>
@@ -145,11 +169,7 @@ export default function App() {
   };
 
   const handleEnterRestaurant = () => {
-    if (
-      restaurantRewardFeaturesUnlocked &&
-      restaurantServicePausedUntil &&
-      restaurantServicePausedUntil > Date.now()
-    ) {
+    if (restaurantServicePausedUntil && restaurantServicePausedUntil > Date.now()) {
       return;
     }
     setGameState('recipeSelection');
@@ -250,7 +270,7 @@ export default function App() {
       targetTotalTimeSeconds,
       didExpire,
     });
-    setGameState('reward');
+    setGameState('satisfaction');
   };
 
   const refillRecipePool = (usedRecipeId: string) => {
@@ -286,15 +306,18 @@ export default function App() {
     const finalRewardQuality = satisfactionResult.finalQuality;
     const xpGained = satisfactionResult.earnedXp;
 
+    let newlyUnlockedRewards: { reward: LevelRewardDefinition; level: number }[] = [];
+
     setPlayerStats((prev) => {
-      const totalXp = prev.xp + xpGained;
-      const leveledUp = totalXp >= prev.xpToNext;
+      const progression = applyXpGain(prev, xpGained, claimedLevelRewardIds);
+
+      newlyUnlockedRewards = progression.unlockedRewards.map((reward) => ({
+        reward,
+        level: reward.level,
+      }));
 
       return {
-        ...prev,
-        xp: leveledUp ? totalXp - prev.xpToNext : totalXp,
-        level: leveledUp ? prev.level + 1 : prev.level,
-        xpToNext: leveledUp ? Math.floor(prev.xpToNext * 1.5) : prev.xpToNext,
+        ...progression.nextStats,
         stars: Math.min(
           prev.maxStars,
           prev.stars + (finalRewardQuality > 80 ? 1 : 0)
@@ -303,18 +326,25 @@ export default function App() {
     });
 
     refillRecipePool(completedOrder.order.recipeId);
-    setDayXpEarned((prev) => prev + xpGained);
-    setDayServiceResults((prev) => [
-      ...prev,
+    const updatedDayXp = dayXpEarned + xpGained;
+    const updatedDayResults = [
+      ...dayServiceResults,
       {
         quality: finalRewardQuality,
         xp: xpGained,
         timeSeconds: completedOrder.totalTimeSpentSeconds,
       },
-    ]);
+    ];
+    const updatedPendingRewards = [
+      ...pendingLevelRewards,
+      ...newlyUnlockedRewards,
+    ];
+
+    setDayXpEarned(updatedDayXp);
+    setDayServiceResults(updatedDayResults);
+    setPendingLevelRewards(updatedPendingRewards);
 
     const nextCompletedServices = completedServices + 1;
-    setCompletedServices(nextCompletedServices);
 
     setCompletedOrder(null);
     setSelectedOrder(null);
@@ -324,26 +354,97 @@ export default function App() {
     setCookingTimeLeftSeconds(null);
 
     if (nextCompletedServices >= SERVICES_PER_DAY) {
-      setGameState('dayReward');
+      setCompletedServices(0);
+      setGameState('reward');
       return;
     }
 
+    setCompletedServices(nextCompletedServices);
     setGameState('recipeSelection');
   };
 
-  const handleDayRewardComplete = () => {
-    setRestaurantRewardFeaturesUnlocked(true);
-    setCompletedServices(0);
+  const handleRewardScreenContinue = () => {
+    const currentRewardEntry = pendingLevelRewards[0];
+    let remainingRewards = pendingLevelRewards;
+
+    if (currentRewardEntry) {
+      const { reward } = currentRewardEntry;
+
+      if (!claimedLevelRewardIds.includes(reward.id)) {
+        setClaimedLevelRewardIds((prev) => [...prev, reward.id]);
+      }
+
+      if (reward.type === 'tipjar_unlock') {
+        setRestaurantRewardFeaturesUnlocked(true);
+        setTipJarCollected(false);
+        setTipJarTokensAvailable((prev) => prev + (reward.tipJarTokens ?? 0));
+      }
+
+      if (reward.type === 'coins' && reward.coinsBonus) {
+        setPlayerStats((prev) => ({
+          ...prev,
+          coins: prev.coins + reward.coinsBonus,
+        }));
+      }
+
+      remainingRewards = pendingLevelRewards.slice(1);
+      setPendingLevelRewards(remainingRewards);
+    }
+
+    if (remainingRewards.length > 0) {
+      setGameState('reward');
+      return;
+    }
+
+    const cooldownEndsAt = Date.now() + RESTAURANT_SERVICE_COOLDOWN_MS;
+    setRestaurantServiceSlotsVisible(true);
+    setRestaurantServicePausedUntil(cooldownEndsAt);
     setDayCoinsEarned(0);
     setDayXpEarned(0);
     setDayServiceResults([]);
-    setRestaurantServicePausedUntil(
-      Date.now() + RESTAURANT_SERVICE_COOLDOWN_MS
-    );
-    setTipJarTokensAvailable(2);
-    setTipJarCollected(false);
     setGameState('restaurant');
   };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    if (restaurantServicePausedUntil && restaurantServicePausedUntil > Date.now()) {
+      window.localStorage.setItem(
+        'restaurantServicePausedUntil',
+        String(restaurantServicePausedUntil)
+      );
+      return;
+    }
+
+    window.localStorage.removeItem('restaurantServicePausedUntil');
+  }, [restaurantServicePausedUntil]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    if (restaurantServiceSlotsVisible) {
+      window.localStorage.setItem('restaurantServiceSlotsVisible', 'true');
+      return;
+    }
+
+    window.localStorage.removeItem('restaurantServiceSlotsVisible');
+  }, [restaurantServiceSlotsVisible]);
+
+  useEffect(() => {
+    if (!restaurantServicePausedUntil) return;
+
+    const remainingMs = restaurantServicePausedUntil - Date.now();
+    if (remainingMs <= 0) {
+      setRestaurantServicePausedUntil(null);
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setRestaurantServicePausedUntil(null);
+    }, remainingMs + 50);
+
+    return () => window.clearTimeout(timeout);
+  }, [restaurantServicePausedUntil]);
 
   const handleCollectTipJar = () => {
     if (tipJarTokensAvailable <= 0 || tipJarCollected) return;
@@ -416,6 +517,7 @@ export default function App() {
                   level={playerStats.level}
                   xp={playerStats.xp}
                   xpToNext={playerStats.xpToNext}
+                  serviceSlotsVisible={restaurantServiceSlotsVisible}
                   rewardFeaturesUnlocked={restaurantRewardFeaturesUnlocked}
                   servicePausedUntil={restaurantServicePausedUntil}
                   tipJarTokensAvailable={tipJarTokensAvailable}
@@ -510,7 +612,7 @@ export default function App() {
               </motion.div>
             )}
 
-            {gameState === 'reward' && completedOrder && (
+            {gameState === 'satisfaction' && completedOrder && (
               <SatisfactionScreen
                 ingredientQuality={completedOrder.ingredientQuality}
                 brothQuality={completedOrder.brothQuality}
@@ -524,12 +626,12 @@ export default function App() {
               />
             )}
 
-            {gameState === 'dayReward' && (
+            {gameState === 'reward' && dayServiceResults.length > 0 && (
               <RewardScreen
+                key={pendingLevelRewards[0]?.reward.id ?? 'day-summary'}
                 services={dayServiceResults}
-                playerProgression={Math.max(0, playerStats.level - 1)}
-                claimedRewardIds={[]}
-                onContinue={handleDayRewardComplete}
+                reward={pendingLevelRewards[0]?.reward ?? null}
+                onContinue={handleRewardScreenContinue}
               />
             )}
           </AnimatePresence>

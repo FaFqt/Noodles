@@ -193,7 +193,7 @@ export default function GameToolbar({
 
         {/* XP Bar */}
         <div
-          className="absolute overflow-hidden rounded-full bg-[#E6B24A]"
+          className="absolute overflow-hidden rounded-full border border-[#8F4C1C] bg-[#7A3B17] shadow-[inset_0_1px_2px_rgba(255,236,181,0.24)]"
           style={{
             left: UI.xpBar.x,
             top: UI.xpBar.y,
@@ -202,7 +202,7 @@ export default function GameToolbar({
           }}
         >
           <div
-            className="h-full rounded-full bg-gradient-to-r from-[#F7E46C] to-[#EA8A31]"
+            className="h-full rounded-full bg-gradient-to-r from-[#FFF29A] via-[#FFD85A] to-[#F08A2B] shadow-[0_0_8px_rgba(255,222,112,0.45)]"
             style={{ width: `${xpRatio * 100}%` }}
           />
         </div>

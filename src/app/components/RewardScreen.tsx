@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useLanguage } from "../context/LanguageContext";
 
@@ -8,16 +8,11 @@ import superButton from "../../assets/ui/SuperButton.svg";
 import rewardAssets from "../../assets/ui/RewardAssets.png";
 import chestClose from "../../assets/ui/chestClose.png";
 import chestOpen from "../../assets/ui/chestOpen.png";
-import rewardTipJar from "../../assets/rewards/RewardTipJar.png";
-import seedDragonPepper from "../../assets/rewards/DragonPepper.png";
-import seedSakuraMushroom from "../../assets/rewards/SakuraMushroom.png";
-import rewardNewRecipe from "../../assets/rewards/GoldenEgg.png";
 import ResponsiveGameCanvas from "./ResponsiveGameCanvas";
+import type { LevelRewardDefinition } from "../data/progression";
 
 const DESIGN_WIDTH = 430;
 const DESIGN_HEIGHT = 780;
-
-type RewardType = "tipjar" | "seed" | "recipe";
 
 interface ServiceResult {
   quality: number; // 0 - 100
@@ -25,21 +20,9 @@ interface ServiceResult {
   timeSeconds: number;
 }
 
-interface RewardDefinition {
-  id: string;
-  type: RewardType;
-  titleFr: string;
-  titleEn: string;
-  descriptionFr: string;
-  descriptionEn: string;
-  image: string;
-}
-
 interface RewardScreenProps {
   services: ServiceResult[]; // 5 services
-  playerProgression?: number; // niveau / progression simple
-  claimedRewardIds?: string[];
-  onRewardUnlocked?: (reward: RewardDefinition) => void;
+  reward?: LevelRewardDefinition | null;
   onContinue?: () => void;
 }
 
@@ -77,49 +60,6 @@ const UI = {
   glowCenter: { x: s(190), y: s(250) },
 } as const;
 
-const REWARD_POOL: RewardDefinition[] = [
-  {
-    id: "tipjar",
-    type: "tipjar",
-    titleFr: "Chat pourboire débloqué",
-    titleEn: "Tip Jar unlocked",
-    descriptionFr: "Récolte quelques tokens bonus au restaurant.",
-    descriptionEn: "Collect a few bonus game tokens in the restaurant.",
-    image: rewardTipJar,
-  },
-  {
-    id: "seed-dragon-pepper",
-    type: "seed",
-    titleFr: "Dragon Pepper débloqué",
-    titleEn: "Dragon Pepper unlocked",
-    descriptionFr: "Une graine spéciale pour la serre.",
-    descriptionEn: "A special seed for the greenhouse.",
-    image: seedDragonPepper,
-  },
-  {
-    id: "seed-sakura-mushroom",
-    type: "seed",
-    titleFr: "Sakura Mushroom débloqué",
-    titleEn: "Sakura Mushroom unlocked",
-    descriptionFr: "Une nouvelle culture rare à faire pousser.",
-    descriptionEn: "A rare new crop to grow.",
-    image: seedSakuraMushroom,
-  },
-  {
-    id: "recipe-special",
-    type: "recipe",
-    titleFr: "Nouvelle recette débloquée",
-    titleEn: "New recipe unlocked",
-    descriptionFr: "Une nouvelle recette rejoint le restaurant.",
-    descriptionEn: "A new recipe joins the restaurant.",
-    image: rewardNewRecipe,
-  },
-];
-
-function clamp(value: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, value));
-}
-
 function average(values: number[]) {
   if (!values.length) return 0;
   return values.reduce((sum, value) => sum + value, 0) / values.length;
@@ -145,28 +85,6 @@ function getGlobalMention(quality: number, language: string) {
   if (quality >= 72) return "Great";
   if (quality >= 52) return "Acceptable";
   return "Passable";
-}
-
-function pickNextReward(
-  playerProgression: number,
-  claimedRewardIds: string[]
-): RewardDefinition {
-  const unclaimed = REWARD_POOL.filter(
-    (reward) => !claimedRewardIds.includes(reward.id)
-  );
-
-  if (!unclaimed.length) {
-    return REWARD_POOL[REWARD_POOL.length - 1];
-  }
-
-  // 1ère récompense forcée = tipjar
-  if (!claimedRewardIds.includes("tipjar")) {
-    return REWARD_POOL[0];
-  }
-
-  // ensuite progression simple
-  const index = clamp(playerProgression, 0, unclaimed.length - 1);
-  return unclaimed[index];
 }
 
 function Sparkles({
@@ -232,13 +150,16 @@ function Sparkles({
 
 export default function RewardScreen({
   services,
-  playerProgression = 0,
-  claimedRewardIds = [],
-  onRewardUnlocked,
+  reward,
   onContinue,
 }: RewardScreenProps) {
   const { language } = useLanguage();
   const [step, setStep] = useState<"summary" | "reward">("summary");
+  const hasReward = Boolean(reward);
+
+  useEffect(() => {
+    setStep("summary");
+  }, [reward?.id, services.length]);
 
   const globalStats = useMemo(() => {
     const qualityAvg = average(services.map((service) => service.quality));
@@ -253,15 +174,10 @@ export default function RewardScreen({
     };
   }, [services, language]);
 
-  const unlockedReward = useMemo(() => {
-    return pickNextReward(playerProgression, claimedRewardIds);
-  }, [playerProgression, claimedRewardIds]);
-
-  const title =
-    language === "fr" ? "BRAVO !" : "WELL DONE!";
+  const title = language === "fr" ? "FIN DE JOURNEE" : "DAY COMPLETE";
 
   const discoverLabel =
-    language === "fr" ? "DÉCOUVRIR LA RÉCOMPENSE" : "DISCOVER REWARD";
+    language === "fr" ? "OUVRIR LE TRESOR" : "OPEN THE CHEST";
 
   const continueLabel =
     language === "fr" ? "CONTINUER" : "CONTINUE";
@@ -271,17 +187,25 @@ export default function RewardScreen({
       ? `${globalStats.mention}`
       : `${globalStats.mention}`;
 
-  const rewardTitle =
-    language === "fr" ? unlockedReward.titleFr : unlockedReward.titleEn;
+  const rewardTitle = reward
+    ? language === "fr"
+      ? reward.titleFr
+      : reward.titleEn
+    : "";
 
-  const rewardDescription =
-    language === "fr"
-      ? unlockedReward.descriptionFr
-      : unlockedReward.descriptionEn;
+  const rewardDescription = reward
+    ? language === "fr"
+      ? reward.descriptionFr
+      : reward.descriptionEn
+    : "";
 
-  const handleRevealReward = () => {
-    setStep("reward");
-    onRewardUnlocked?.(unlockedReward);
+  const handlePrimaryAction = () => {
+    if (step === "summary" && hasReward) {
+      setStep("reward");
+      return;
+    }
+
+    onContinue?.();
   };
 
   return (
@@ -353,21 +277,19 @@ export default function RewardScreen({
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.25 }}
               >
-                {unlockedReward.id !== "tipjar" ? (
-                  <img
-                    src={rewardAssets}
-                    alt="Reward summary icons"
-                    className="absolute"
-                    draggable={false}
-                    style={{
-                      left: UI.summaryIcons.bowl.x - UI.board.x,
-                      top: UI.summaryIcons.bowl.y - UI.board.y,
-                      width: 350,
-                      height: 150,
-                      objectFit: "contain",
-                    }}
-                  />
-                ) : null}
+                <img
+                  src={rewardAssets}
+                  alt="Reward summary icons"
+                  className="absolute"
+                  draggable={false}
+                  style={{
+                    left: UI.summaryIcons.bowl.x - UI.board.x,
+                    top: UI.summaryIcons.bowl.y - UI.board.y,
+                    width: 350,
+                    height: 150,
+                    objectFit: "contain",
+                  }}
+                />
 
                 <div
                   className="absolute text-[#2f160c]"
@@ -432,7 +354,7 @@ export default function RewardScreen({
                   }}
                 >
                   <motion.img
-                    src={unlockedReward.image}
+                    src={reward?.image}
                     alt={rewardTitle}
                     draggable={false}
                     className="max-h-full max-w-full object-contain"
@@ -452,7 +374,7 @@ export default function RewardScreen({
 
         {/* Reward title/description */}
         <AnimatePresence>
-          {step === "reward" && (
+          {step === "reward" && reward && (
             <>
               <motion.div
                 initial={{ opacity: 0, y: 6 }}
@@ -506,7 +428,7 @@ export default function RewardScreen({
           }}
         >
           <AnimatePresence mode="wait">
-            {step === "summary" ? (
+            {step === "summary" && hasReward ? (
               <motion.img
                 key="closed"
                 src={chestClose}
@@ -518,7 +440,7 @@ export default function RewardScreen({
                 exit={{ opacity: 0, scale: 0.92 }}
                 transition={{ duration: 0.22 }}
               />
-            ) : (
+            ) : hasReward ? (
               <motion.img
                 key="open"
                 src={chestOpen}
@@ -530,13 +452,13 @@ export default function RewardScreen({
                 exit={{ opacity: 0 }}
                 transition={{ type: "spring", stiffness: 220, damping: 18 }}
               />
-            )}
+            ) : null}
           </AnimatePresence>
         </div>
 
         {/* Appearing reward + sparkles */}
         <AnimatePresence>
-          {step === "reward" && (
+          {step === "reward" && reward && (
             <>
               <Sparkles
                 centerX={UI.glowCenter.x}
@@ -563,7 +485,7 @@ export default function RewardScreen({
                 }}
               >
                 <img
-                  src={unlockedReward.image}
+                  src={reward.image}
                   alt={rewardTitle}
                   draggable={false}
                   className="max-h-full max-w-full object-contain"
@@ -577,7 +499,7 @@ export default function RewardScreen({
         <motion.button
           whileTap={{ scale: 0.97, y: 2 }}
           whileHover={{ scale: 1.02 }}
-          onClick={step === "summary" ? handleRevealReward : onContinue}
+          onClick={handlePrimaryAction}
           className="absolute"
           style={{
             left: UI.button.x,
@@ -610,7 +532,7 @@ export default function RewardScreen({
               transform: "translateY(-6px)",
             }}
           >
-            {step === "summary" ? discoverLabel : continueLabel}
+            {step === "summary" && hasReward ? discoverLabel : continueLabel}
           </span>
         </motion.button>
           </div>

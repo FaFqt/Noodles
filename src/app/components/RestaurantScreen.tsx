@@ -22,6 +22,7 @@ interface RestaurantScreenProps {
   level?: number;
   xp?: number;
   xpToNext?: number;
+  serviceSlotsVisible?: boolean;
   rewardFeaturesUnlocked?: boolean;
   servicePausedUntil?: number | null;
   tipJarTokensAvailable?: number;
@@ -100,6 +101,7 @@ export default function NoodlesRestaurantScreen({
   level = 1,
   xp = 4,
   xpToNext = 9,
+  serviceSlotsVisible = false,
   rewardFeaturesUnlocked = false,
   servicePausedUntil = null,
   tipJarTokensAvailable = 0,
@@ -110,6 +112,7 @@ export default function NoodlesRestaurantScreen({
   const rootRef = React.useRef<HTMLDivElement | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [flyingTokens, setFlyingTokens] = useState<FlyingToken[]>([]);
+  const [isCollectingTipJar, setIsCollectingTipJar] = useState(false);
   const [viewportSize, setViewportSize] = useState({
     width: DESIGN_WIDTH,
     height: DESIGN_HEIGHT,
@@ -158,10 +161,10 @@ export default function NoodlesRestaurantScreen({
     return Math.max(0, Math.ceil((servicePausedUntil - now) / 1000));
   }, [servicePausedUntil, now]);
 
-  const isServicePaused =
-    rewardFeaturesUnlocked && remainingCooldownSeconds > 0;
+  const isServicePaused = remainingCooldownSeconds > 0;
   const canCollectTipJar =
     rewardFeaturesUnlocked && tipJarTokensAvailable > 0 && !tipJarCollected;
+  const showTipJarNotification = canCollectTipJar && !isCollectingTipJar;
   const layoutScale = Math.min(
     viewportSize.width / DESIGN_WIDTH,
     viewportSize.height / DESIGN_HEIGHT
@@ -178,6 +181,7 @@ export default function NoodlesRestaurantScreen({
 
   const handleCollectTipJar = () => {
     if (!canCollectTipJar) return;
+    setIsCollectingTipJar(true);
 
     const nextTokens = Array.from({ length: tipJarTokensAvailable }, (_, index) => ({
       id: Date.now() + index,
@@ -193,8 +197,15 @@ export default function NoodlesRestaurantScreen({
     window.setTimeout(() => {
       onCollectTipJar?.();
       setFlyingTokens([]);
+      setIsCollectingTipJar(false);
     }, 900);
   };
+
+  useEffect(() => {
+    if (!canCollectTipJar) {
+      setIsCollectingTipJar(false);
+    }
+  }, [canCollectTipJar]);
 
   return (
     <div
@@ -230,7 +241,7 @@ export default function NoodlesRestaurantScreen({
         />
 
         <div className="relative h-full w-full">
-          {rewardFeaturesUnlocked
+          {serviceSlotsVisible
             ? UI.serviceSlots.map((slot, index) => {
                 const isLocked = slot.locked;
                 const slotNumber = index + 1;
@@ -253,7 +264,7 @@ export default function NoodlesRestaurantScreen({
                       draggable={false}
                     />
 
-                    {isLocked ? null : (
+                    {!isLocked && isServicePaused ? (
                       <div
                         className="absolute bottom-[9px] left-1/2 -translate-x-1/2 whitespace-nowrap text-[#fff3cf]"
                         style={{
@@ -265,7 +276,7 @@ export default function NoodlesRestaurantScreen({
                         {SERVICE_SLOT_COOLDOWN_LABEL[language]}{" "}
                         {formatRemaining(remainingCooldownSeconds, language)}
                       </div>
-                    )}
+                    ) : null}
                   </div>
                 );
               })
@@ -274,7 +285,7 @@ export default function NoodlesRestaurantScreen({
           {rewardFeaturesUnlocked ? (
             <>
               <AnimatePresence>
-                {canCollectTipJar && (
+                {showTipJarNotification && (
                   <motion.img
                     key="tipjar-notification"
                     src={notificationTipJarAsset}
