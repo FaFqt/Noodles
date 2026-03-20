@@ -11,6 +11,8 @@ import slot2LockedAsset from "../../assets/ui/Slot_2locked.png";
 import slot3LockedAsset from "../../assets/ui/Slot_3locked.png";
 import { useLanguage } from "../context/LanguageContext";
 import GameToolbar from "./GameToolbar";
+const DESIGN_WIDTH = 430;
+const DESIGN_HEIGHT = 780;
 
 interface RestaurantScreenProps {
   onEnter?: () => void;
@@ -105,8 +107,43 @@ export default function NoodlesRestaurantScreen({
   onCollectTipJar,
 }: RestaurantScreenProps) {
   const { language, t } = useLanguage();
+  const rootRef = React.useRef<HTMLDivElement | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [flyingTokens, setFlyingTokens] = useState<FlyingToken[]>([]);
+  const [viewportSize, setViewportSize] = useState({
+    width: DESIGN_WIDTH,
+    height: DESIGN_HEIGHT,
+  });
+
+  useEffect(() => {
+    const updateViewportSize = () => {
+      const rect = rootRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      setViewportSize({
+        width: rect.width,
+        height: rect.height,
+      });
+    };
+
+    updateViewportSize();
+
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => updateViewportSize())
+        : null;
+
+    if (rootRef.current && resizeObserver) {
+      resizeObserver.observe(rootRef.current);
+    }
+
+    window.addEventListener("resize", updateViewportSize);
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", updateViewportSize);
+    };
+  }, []);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -125,6 +162,14 @@ export default function NoodlesRestaurantScreen({
     rewardFeaturesUnlocked && remainingCooldownSeconds > 0;
   const canCollectTipJar =
     rewardFeaturesUnlocked && tipJarTokensAvailable > 0 && !tipJarCollected;
+  const layoutScale = Math.min(
+    viewportSize.width / DESIGN_WIDTH,
+    viewportSize.height / DESIGN_HEIGHT
+  );
+  const scaledWidth = DESIGN_WIDTH * layoutScale;
+  const scaledHeight = DESIGN_HEIGHT * layoutScale;
+  const scaledOffsetX = (viewportSize.width - scaledWidth) / 2;
+  const scaledOffsetY = (viewportSize.height - scaledHeight) / 2;
 
   const handleCookClick = () => {
     if (isServicePaused) return;
@@ -152,7 +197,10 @@ export default function NoodlesRestaurantScreen({
   };
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-[#F4E2C7]">
+    <div
+      ref={rootRef}
+      className="relative h-full w-full overflow-hidden bg-[#F4E2C7]"
+    >
       <img
         src={restaurantImage}
         alt="Restaurant background"
@@ -161,203 +209,209 @@ export default function NoodlesRestaurantScreen({
 
       <div className="absolute inset-0 bg-gradient-to-b from-[#FFF5E6]/20 via-transparent to-[#3E210E]/12" />
 
-      <GameToolbar
-        playerName={playerName}
-        coins={coins}
-        level={level}
-        xp={xp}
-        xpToNext={xpToNext}
-        onBack={onExit}
-        onSettings={() => console.log("open settings")}
-      />
-
       <div
-        className="relative z-10 h-full w-full text-[#5F3116]"
-        style={fredokaStyle}
+        className="absolute inset-0 z-10 text-[#5F3116]"
+        style={{
+          ...fredokaStyle,
+          transform: `translate(${scaledOffsetX}px, ${scaledOffsetY}px) scale(${layoutScale})`,
+          transformOrigin: "top left",
+          width: DESIGN_WIDTH,
+          height: DESIGN_HEIGHT,
+        }}
       >
-        {rewardFeaturesUnlocked
-          ? UI.serviceSlots.map((slot, index) => {
-              const isLocked = slot.locked;
-              const slotNumber = index + 1;
+        <GameToolbar
+          playerName={playerName}
+          coins={coins}
+          level={level}
+          xp={xp}
+          xpToNext={xpToNext}
+          onBack={onExit}
+          onSettings={() => console.log("open settings")}
+        />
 
-              return (
-                <div
-                  key={slotNumber}
-                  className="absolute"
-                  style={{
-                    left: slot.x,
-                    top: slot.y,
-                    width: slot.w,
-                    height: slot.h,
-                  }}
-                >
-                  <img
-                    src={slot.asset}
-                    alt={`Service slot ${slotNumber}`}
-                    className="h-full w-full object-contain"
+        <div className="relative h-full w-full">
+          {rewardFeaturesUnlocked
+            ? UI.serviceSlots.map((slot, index) => {
+                const isLocked = slot.locked;
+                const slotNumber = index + 1;
+
+                return (
+                  <div
+                    key={slotNumber}
+                    className="absolute"
+                    style={{
+                      left: slot.x,
+                      top: slot.y,
+                      width: slot.w,
+                      height: slot.h,
+                    }}
+                  >
+                    <img
+                      src={slot.asset}
+                      alt={`Service slot ${slotNumber}`}
+                      className="h-full w-full object-contain"
+                      draggable={false}
+                    />
+
+                    {isLocked ? null : (
+                      <div
+                        className="absolute bottom-[9px] left-1/2 -translate-x-1/2 whitespace-nowrap text-[#fff3cf]"
+                        style={{
+                          fontSize: s(10),
+                          fontWeight: 700,
+                          textShadow: "0 1px 3px rgba(0,0,0,0.45)",
+                        }}
+                      >
+                        {SERVICE_SLOT_COOLDOWN_LABEL[language]}{" "}
+                        {formatRemaining(remainingCooldownSeconds, language)}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            : null}
+
+          {rewardFeaturesUnlocked ? (
+            <>
+              <AnimatePresence>
+                {canCollectTipJar && (
+                  <motion.img
+                    key="tipjar-notification"
+                    src={notificationTipJarAsset}
+                    alt="Tip Jar notification"
+                    className="absolute"
+                    style={{
+                      left: UI.notification.x,
+                      top: UI.notification.y,
+                      width: UI.notification.w,
+                      height: UI.notification.h,
+                    }}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{
+                      opacity: 1,
+                      scale: [1, 1.06, 1],
+                      y: [0, -4, 0],
+                    }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    transition={{
+                      duration: 1.4,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
                     draggable={false}
                   />
+                )}
+              </AnimatePresence>
 
-                  {isLocked ? (
-                    null
-                  ) : (
-                    <div
-                      className="absolute bottom-[9px] left-1/2 -translate-x-1/2 whitespace-nowrap text-[#fff3cf]"
-                      style={{
-                        fontSize: s(10),
-                        fontWeight: 700,
-                        textShadow: "0 1px 3px rgba(0,0,0,0.45)",
-                      }}
-                    >
-                      {SERVICE_SLOT_COOLDOWN_LABEL[language]}{" "}
-                      {formatRemaining(remainingCooldownSeconds, language)}
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          : null}
-
-        {rewardFeaturesUnlocked ? (
-          <>
-            <AnimatePresence>
-              {canCollectTipJar && (
-                <motion.img
-                  key="tipjar-notification"
-                  src={notificationTipJarAsset}
-                  alt="Tip Jar notification"
-                  className="absolute"
-                  style={{
-                    left: UI.notification.x,
-                    top: UI.notification.y,
-                    width: UI.notification.w,
-                    height: UI.notification.h,
-                  }}
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{
-                    opacity: 1,
-                    scale: [1, 1.06, 1],
-                    y: [0, -4, 0],
-                  }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  transition={{
-                    duration: 1.4,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                  }}
+              <motion.button
+                type="button"
+                whileTap={canCollectTipJar ? { scale: 0.96 } : {}}
+                whileHover={canCollectTipJar ? { scale: 1.03 } : {}}
+                onClick={handleCollectTipJar}
+                disabled={!canCollectTipJar}
+                className="absolute bg-transparent"
+                style={{
+                  left: UI.tipJar.x,
+                  top: UI.tipJar.y,
+                  width: UI.tipJar.w,
+                  height: UI.tipJar.h,
+                }}
+              >
+                <img
+                  src={tipJarAsset}
+                  alt="Tip Jar"
+                  className="h-full w-full object-contain"
                   draggable={false}
                 />
-              )}
-            </AnimatePresence>
+                {canCollectTipJar ? (
+                  <div
+                    className="absolute left-1/2 top-[40px] -translate-x-1/2 rounded-full bg-[#ffde6d] px-[6px] py-[1px] text-[#7a3d0f]"
+                    style={{
+                      fontSize: s(12),
+                      fontWeight: 700,
+                      boxShadow: "0 2px 6px rgba(0,0,0,0.22)",
+                    }}
+                  >
+                    +{tipJarTokensAvailable}
+                  </div>
+                ) : null}
+              </motion.button>
+            </>
+          ) : null}
 
-            <motion.button
-              type="button"
-              whileTap={canCollectTipJar ? { scale: 0.96 } : {}}
-              whileHover={canCollectTipJar ? { scale: 1.03 } : {}}
-              onClick={handleCollectTipJar}
-              disabled={!canCollectTipJar}
-              className="absolute bg-transparent"
+          {flyingTokens.map((token) => (
+            <motion.img
+              key={token.id}
+              src={coinLogoAsset}
+              alt="Flying token"
+              className="pointer-events-none absolute"
               style={{
-                left: UI.tipJar.x,
-                top: UI.tipJar.y,
-                width: UI.tipJar.w,
-                height: UI.tipJar.h,
+                left: token.startX,
+                top: token.startY,
+                width: 26,
+                height: 26,
               }}
-            >
-              <img
-                src={tipJarAsset}
-                alt="Tip Jar"
-                className="h-full w-full object-contain"
-                draggable={false}
-              />
-              {canCollectTipJar ? (
-                <div
-                  className="absolute left-1/2 top-[40px] -translate-x-1/2 rounded-full bg-[#ffde6d] px-[6px] py-[1px] text-[#7a3d0f]"
-                  style={{
-                    fontSize: s(12),
-                    fontWeight: 700,
-                    boxShadow: "0 2px 6px rgba(0,0,0,0.22)",
-                  }}
-                >
-                  +{tipJarTokensAvailable}
-                </div>
-              ) : null}
-            </motion.button>
-          </>
-        ) : null}
+              initial={{ opacity: 0, scale: 0.7, x: 0, y: 0 }}
+              animate={{
+                opacity: [0, 1, 1, 0],
+                scale: [0.7, 1, 1, 0.8],
+                x: token.endX - token.startX,
+                y: token.endY - token.startY,
+              }}
+              transition={{
+                duration: 0.8,
+                delay: token.delay,
+                ease: "easeInOut",
+              }}
+              draggable={false}
+            />
+          ))}
 
-        {flyingTokens.map((token) => (
-          <motion.img
-            key={token.id}
-            src={coinLogoAsset}
-            alt="Flying token"
-            className="pointer-events-none absolute"
+          <motion.button
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ delay: 0.1, duration: 0.45, ease: "easeOut" }}
+            whileHover={!isServicePaused ? { scale: 1.03 } : {}}
+            whileTap={!isServicePaused ? { scale: 0.97, y: 2 } : {}}
+            onClick={handleCookClick}
+            disabled={isServicePaused}
+            type="button"
+            className="absolute z-30 disabled:opacity-65"
             style={{
-              left: token.startX,
-              top: token.startY,
-              width: 26,
-              height: 26,
-            }}
-            initial={{ opacity: 0, scale: 0.7, x: 0, y: 0 }}
-            animate={{
-              opacity: [0, 1, 1, 0],
-              scale: [0.7, 1, 1, 0.8],
-              x: token.endX - token.startX,
-              y: token.endY - token.startY,
-            }}
-            transition={{
-              duration: 0.8,
-              delay: token.delay,
-              ease: "easeInOut",
-            }}
-            draggable={false}
-          />
-        ))}
-
-        <motion.button
-          initial={{ opacity: 0, y: 20, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ delay: 0.1, duration: 0.45, ease: "easeOut" }}
-          whileHover={!isServicePaused ? { scale: 1.03 } : {}}
-          whileTap={!isServicePaused ? { scale: 0.97, y: 2 } : {}}
-          onClick={handleCookClick}
-          disabled={isServicePaused}
-          type="button"
-          className="absolute z-30 disabled:opacity-65"
-          style={{
-            left: UI.cookButton.x,
-            top: UI.cookButton.y,
-            width: UI.cookButton.w,
-            height: UI.cookButton.h,
-            filter:
-              "drop-shadow(0 6px 0 #8A4A20) drop-shadow(0 10px 18px rgba(0,0,0,0.22))",
-          }}
-        >
-          <img
-            src={cookButtonImage}
-            alt={t("cookRestaurant")}
-            draggable={false}
-            className="block h-full w-full object-fill"
-          />
-
-          <span
-            className="absolute inset-0 flex items-center justify-center select-none"
-            style={{
-              fontFamily: "Fredoka, sans-serif",
-              fontSize: "clamp(1.4rem, 4.2vw, 2rem)",
-              color: "#FFFFFF",
-              textShadow:
-                "0 2px 8px rgba(0,0,0,0.5), 0 0 10px rgba(120,55,10,0.15)",
-              letterSpacing: "0.04em",
+              left: UI.cookButton.x,
+              top: UI.cookButton.y,
+              width: UI.cookButton.w,
+              height: UI.cookButton.h,
+              filter:
+                "drop-shadow(0 6px 0 #8A4A20) drop-shadow(0 10px 18px rgba(0,0,0,0.22))",
             }}
           >
-            {isServicePaused
-              ? language === "fr"
-                ? "EN ATTENTE"
-                : "PLEASE WAIT"
-              : t("cookRestaurant")}
-          </span>
-        </motion.button>
+            <img
+              src={cookButtonImage}
+              alt={t("cookRestaurant")}
+              draggable={false}
+              className="block h-full w-full object-fill"
+            />
+
+            <span
+              className="absolute inset-0 flex items-center justify-center select-none"
+              style={{
+                fontFamily: "Fredoka, sans-serif",
+                fontSize: "clamp(1.4rem, 4.2vw, 2rem)",
+                color: "#FFFFFF",
+                textShadow:
+                  "0 2px 8px rgba(0,0,0,0.5), 0 0 10px rgba(120,55,10,0.15)",
+                letterSpacing: "0.04em",
+              }}
+            >
+              {isServicePaused
+                ? language === "fr"
+                  ? "EN ATTENTE"
+                  : "PLEASE WAIT"
+                : t("cookRestaurant")}
+            </span>
+          </motion.button>
+        </div>
       </div>
     </div>
   );
