@@ -3,6 +3,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import villageImage from '../../assets/screens/Village.png';
 import buttonImage from '../../assets/ui/ButtonOpen.png';
 import { useLanguage } from '../context/LanguageContext';
+import ResponsiveGameCanvas from './ResponsiveGameCanvas';
+
+const DESIGN_WIDTH = 430;
+const DESIGN_HEIGHT = 780;
 
 interface VillageProps {
   onSelectBuilding: (building: string) => void;
@@ -78,8 +82,9 @@ function Toast({ msg }: { msg: string }) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 14 }}
       transition={{ duration: 0.3 }}
-      className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[200]"
+      className="fixed left-1/2 -translate-x-1/2 z-[200]"
       style={{
+        bottom: 'calc(var(--safe-area-bottom) + 20px)',
         background: 'rgba(20,8,0,0.92)',
         border: '1px solid rgba(255,175,0,0.45)',
         borderRadius: '999px',
@@ -189,108 +194,109 @@ export function Village({ onSelectBuilding }: VillageProps) {
   };
 
   return (
-    <div
-      className="relative w-full h-full overflow-hidden"
-      style={{ background: '#0E1A0A' }}
-      onClick={() => setActiveBuilding(null)}
+    <ResponsiveGameCanvas
+      designWidth={DESIGN_WIDTH}
+      designHeight={DESIGN_HEIGHT}
+      className="relative h-full w-full overflow-hidden"
     >
-      {/* Village background */}
-      <img
-        src={villageImage}
-        alt="Village"
-        className="absolute inset-0 w-full h-full object-cover"
-        style={{ objectPosition: 'center top' }}
-      />
-
-      {/* Top gradient vignette */}
-      <div
-        className="absolute top-0 left-0 right-0 h-[16%] z-[2]"
-        style={{
-          background: 'linear-gradient(to bottom, rgba(0,0,0,0.52), transparent)'
-        }}
-      />
-
-      {/* Floating particles */}
-      <div className="absolute inset-0 z-[3] pointer-events-none">
-        {PARTICLES.map((p, i) => (
-          <Particle key={i} {...p} />
-        ))}
-      </div>
-
-      {/* Header */}
-      <div className="absolute top-0 left-0 right-0 z-20 flex justify-between items-center p-4 gap-2">
-        {/* Wallet button - left */}
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() =>
-            showToast(
-              language === 'fr'
-                ? '🔗 Cartridge Wallet - Bientôt disponible !'
-                : '🔗 Cartridge Wallet - Coming soon!'
-            )
-          }
-          style={hdrBtn}
+      {({ canvasStyle }) => (
+        <div
+          className="relative h-full w-full overflow-hidden"
+          style={{ background: '#0E1A0A' }}
+          onClick={() => setActiveBuilding(null)}
         >
-          🎮 Wallet
-        </motion.button>
-
-        {/* Language toggle - right */}
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={toggleLanguage}
-          style={hdrBtn}
-        >
-          {language === 'fr' ? 'EN' : 'FR'}
-        </motion.button>
-      </div>
-
-      {/* OUVRIR / OPEN button */}
-      <AnimatePresence>
-        {activeBuilding && !activeBuilding.locked && (
-          <OpenButton
-            label={t('openRestaurant')}
-            onClick={handleOpen}
+          <img
+            src={villageImage}
+            alt="Village"
+            className="absolute inset-0 w-full h-full object-cover"
+            style={{ objectPosition: 'center top' }}
           />
-        )}
-      </AnimatePresence>
 
-      {/* Building hotspots */}
-      {BUILDINGS.map((b) => (
-        <motion.button
-          key={b.id}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{
-            delay: 0.1 * BUILDINGS.indexOf(b),
-            type: 'spring',
-            stiffness: 220,
-            damping: 18
-          }}
-          whileTap={{ scale: 0.98 }}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleBuildingClick(b);
-          }}
-          aria-label={t(b.labelKey)}
-          className="absolute z-[15] cursor-pointer border-none bg-transparent"
-          style={{
-            left: b.x,
-            top: b.y,
-            width: b.w,
-            height: b.h,
-            outline: 'none'
-          }}
-        >
-          <span className="sr-only">{t(b.labelKey)}</span>
-        </motion.button>
-      ))}
+          <div
+            className="absolute top-0 left-0 right-0 h-[16%] z-[2]"
+            style={{
+              background: 'linear-gradient(to bottom, rgba(0,0,0,0.52), transparent)'
+            }}
+          />
 
-      {/* Toast */}
-      <AnimatePresence>
-        {toast && <Toast key={toast} msg={toast} />}
-      </AnimatePresence>
-    </div>
+          <div className="absolute inset-0 z-[3] pointer-events-none">
+            {PARTICLES.map((p, i) => (
+              <Particle key={i} {...p} />
+            ))}
+          </div>
+
+          <div className="absolute inset-0 z-10" style={canvasStyle}>
+            <div className="absolute top-0 left-0 right-0 z-20 flex justify-between items-center p-4 gap-2">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() =>
+                  showToast(
+                    language === 'fr'
+                      ? '🔗 Cartridge Wallet - Bientôt disponible !'
+                      : '🔗 Cartridge Wallet - Coming soon!'
+                  )
+                }
+                style={hdrBtn}
+              >
+                🎮 Wallet
+              </motion.button>
+
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={toggleLanguage}
+                style={hdrBtn}
+              >
+                {language === 'fr' ? 'EN' : 'FR'}
+              </motion.button>
+            </div>
+
+            <AnimatePresence>
+              {activeBuilding && !activeBuilding.locked && (
+                <OpenButton
+                  label={t('openRestaurant')}
+                  onClick={handleOpen}
+                />
+              )}
+            </AnimatePresence>
+
+            {BUILDINGS.map((b) => (
+              <motion.button
+                key={b.id}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{
+                  delay: 0.1 * BUILDINGS.indexOf(b),
+                  type: 'spring',
+                  stiffness: 220,
+                  damping: 18
+                }}
+                whileTap={{ scale: 0.98 }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleBuildingClick(b);
+                }}
+                aria-label={t(b.labelKey)}
+                className="absolute z-[15] cursor-pointer border-none bg-transparent"
+                style={{
+                  left: b.x,
+                  top: b.y,
+                  width: b.w,
+                  height: b.h,
+                  outline: 'none'
+                }}
+              >
+                <span className="sr-only">{t(b.labelKey)}</span>
+              </motion.button>
+            ))}
+          </div>
+
+          <AnimatePresence>
+            {toast && <Toast key={toast} msg={toast} />}
+          </AnimatePresence>
+        </div>
+      )}
+    </ResponsiveGameCanvas>
   );
 }

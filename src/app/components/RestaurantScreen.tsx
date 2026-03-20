@@ -53,8 +53,8 @@ const UI = {
     { x: s(250), y: s(140), w: s(120), h: s(70), locked: true, asset: slot3LockedAsset },
   ],
   tipJar: {
-    x: s(285),
-    y: s(320),
+    x: s(290),
+    y: s(330),
     w: s(150),
     h: s(150),
   },

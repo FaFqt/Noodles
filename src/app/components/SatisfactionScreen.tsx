@@ -5,6 +5,10 @@ import backgroundImageFailed from "../../assets/screens/UnsatisfiedScreen.png";
 import satisfactionFrameAsset from "../../assets/ui/CadreSatisfaction.svg";
 import buttonStartAsset from "../../assets/ui/ButtonStart.png"; 
 import { useLanguage } from "../context/LanguageContext";
+import ResponsiveGameCanvas from "./ResponsiveGameCanvas";
+
+const DESIGN_WIDTH = 430;
+const DESIGN_HEIGHT = 780;
 
 const ASSET_MODULES = import.meta.glob("../../assets/**/*.{png,svg}", {
   eager: true,
@@ -67,8 +71,8 @@ const UI = {
   continueButton: {
     x: s(112),
     y: s(660),
-    w: s(180),
-    h: s(50),
+    w: s(200),
+    h: s(56),
   },
 } as const;
 
@@ -346,61 +350,68 @@ export default function SatisfactionScreen({
     isFailedState ? backgroundImageFailed : backgroundImage;
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-[#f8e2c8]">
-      <img
-        src={activeBackgroundImage}
-        alt={
-          isFailedState
-            ? "Unsatisfied customer background"
-            : "Satisfaction background"
-        }
-        className="absolute inset-0 h-full w-full object-cover"
-        draggable={false}
-      />
+    <ResponsiveGameCanvas
+      designWidth={DESIGN_WIDTH}
+      designHeight={DESIGN_HEIGHT}
+      className="relative h-full w-full overflow-hidden bg-[#f8e2c8]"
+    >
+      {({ canvasStyle }) => (
+        <>
+          <img
+            src={activeBackgroundImage}
+            alt={
+              isFailedState
+                ? "Unsatisfied customer background"
+                : "Satisfaction background"
+            }
+            className="absolute inset-0 h-full w-full object-cover"
+            draggable={false}
+          />
 
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[rgba(70,20,5,0.08)]" />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[rgba(70,20,5,0.08)]" />
 
-      {!isFailedState
-        ? petals.map((petal) => (
-            <motion.div
-              key={petal.id}
-              className="absolute pointer-events-none"
-              style={{
-                left: `${petal.startX}%`,
-                top: -32,
-                width: petal.size,
-                height: petal.size * 0.72,
-                background: petal.color,
-                opacity: petal.opacity,
-                borderRadius: "75% 35% 70% 40%",
-                boxShadow: "0 0 8px rgba(255, 214, 232, 0.35)",
-                zIndex: 1,
-              }}
-              initial={{
-                x: 0,
-                y: -20,
-                rotate: petal.rotate,
-              }}
-              animate={{
-                x: [0, petal.sway, -petal.sway * 0.6, petal.drift],
-                y: ["0vh", "40vh", "75vh", "115vh"],
-                rotate: [
-                  petal.rotate,
-                  petal.rotate + 80,
-                  petal.rotate - 55,
-                  petal.rotate + 130,
-                ],
-              }}
-              transition={{
-                duration: petal.duration,
-                delay: petal.delay,
-                repeat: Infinity,
-                ease: "linear",
-              }}
-            />
-          ))
-        : null}
+          {!isFailedState
+            ? petals.map((petal) => (
+                <motion.div
+                  key={petal.id}
+                  className="absolute pointer-events-none"
+                  style={{
+                    left: `${petal.startX}%`,
+                    top: -32,
+                    width: petal.size,
+                    height: petal.size * 0.72,
+                    background: petal.color,
+                    opacity: petal.opacity,
+                    borderRadius: "75% 35% 70% 40%",
+                    boxShadow: "0 0 8px rgba(255, 214, 232, 0.35)",
+                    zIndex: 1,
+                  }}
+                  initial={{
+                    x: 0,
+                    y: -20,
+                    rotate: petal.rotate,
+                  }}
+                  animate={{
+                    x: [0, petal.sway, -petal.sway * 0.6, petal.drift],
+                    y: ["0vh", "40vh", "75vh", "115vh"],
+                    rotate: [
+                      petal.rotate,
+                      petal.rotate + 80,
+                      petal.rotate - 55,
+                      petal.rotate + 130,
+                    ],
+                  }}
+                  transition={{
+                    duration: petal.duration,
+                    delay: petal.delay,
+                    repeat: Infinity,
+                    ease: "linear",
+                  }}
+                />
+              ))
+            : null}
 
+          <div className="absolute inset-0" style={canvasStyle}>
       {/* Cadre de satisfaction */}
       <div
         className="absolute"
@@ -539,6 +550,9 @@ export default function SatisfactionScreen({
           {continueLabel}
         </span>
       </motion.button>
-    </div>
+          </div>
+        </>
+      )}
+    </ResponsiveGameCanvas>
   );
 }

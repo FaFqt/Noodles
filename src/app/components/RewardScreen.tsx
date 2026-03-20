@@ -12,6 +12,10 @@ import rewardTipJar from "../../assets/rewards/RewardTipJar.png";
 import seedDragonPepper from "../../assets/rewards/DragonPepper.png";
 import seedSakuraMushroom from "../../assets/rewards/SakuraMushroom.png";
 import rewardNewRecipe from "../../assets/rewards/GoldenEgg.png";
+import ResponsiveGameCanvas from "./ResponsiveGameCanvas";
+
+const DESIGN_WIDTH = 430;
+const DESIGN_HEIGHT = 780;
 
 type RewardType = "tipjar" | "seed" | "recipe";
 
@@ -281,21 +285,27 @@ export default function RewardScreen({
   };
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-[#1f0d05]">
-      <img
-        src={restaurantBackground}
-        alt="Restaurant background"
-        className="absolute inset-0 h-full w-full object-cover"
-        draggable={false}
-        style={{
-          filter: "blur(3px) brightness(0.92)",
-          transform: "scale(1.04)",
-        }}
-      />
+    <ResponsiveGameCanvas
+      designWidth={DESIGN_WIDTH}
+      designHeight={DESIGN_HEIGHT}
+      className="relative h-full w-full overflow-hidden bg-[#1f0d05]"
+    >
+      {({ canvasStyle }) => (
+        <>
+          <img
+            src={restaurantBackground}
+            alt="Restaurant background"
+            className="absolute inset-0 h-full w-full object-cover"
+            draggable={false}
+            style={{
+              filter: "blur(3px) brightness(0.92)",
+              transform: "scale(1.04)",
+            }}
+          />
 
-      <div className="absolute inset-0 bg-[rgba(50,20,8,0.22)]" />
+          <div className="absolute inset-0 bg-[rgba(50,20,8,0.22)]" />
 
-      <div className="relative z-10 h-full w-full">
+          <div className="absolute inset-0 z-10" style={canvasStyle}>
         {/* Board */}
         <motion.div
           initial={{ opacity: 0, y: 16, scale: 0.96 }}
@@ -603,7 +613,9 @@ export default function RewardScreen({
             {step === "summary" ? discoverLabel : continueLabel}
           </span>
         </motion.button>
-      </div>
-    </div>
+          </div>
+        </>
+      )}
+    </ResponsiveGameCanvas>
   );
 }

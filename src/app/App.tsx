@@ -15,7 +15,7 @@ import RecipeSelectionScreen, {
   RecipeSelectionItem,
 } from './components/RecipeSelectionScreen';
 import { useIsMobile } from './components/ui/use-mobile';
-import type { Order } from './components/ClientOrder';
+import type { Order } from './types/order';
 import { RECIPES, getRecipeById, SERVICES_PER_DAY } from './data/recipes';
 
 // Assets ramen

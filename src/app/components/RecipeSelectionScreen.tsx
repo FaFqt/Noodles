@@ -10,6 +10,10 @@ import frameImage from "../../assets/ui/Cadre.png";
 import backgroundImage from "../../assets/backgrounds/mont-fuji.png";
 import woodButtonImage from "../../assets/ui/ButtonStart.png";
 import GameToolbar from "./GameToolbar";
+import ResponsiveGameCanvas from "./ResponsiveGameCanvas";
+
+const DESIGN_WIDTH = 430;
+const DESIGN_HEIGHT = 780;
 
 export interface RecipeSelectionItem {
   id: string;
@@ -76,10 +80,10 @@ const UI = {
   },
 
   cookButton: {
-    x: 82,
+    x: 80,
     y: 650,
-    w: 240,
-    h: 68,
+    w: 270,
+    h: 72,
   },
 } as const;
 
@@ -227,144 +231,154 @@ export default function RecipeSelectionScreen({
   );
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-[#4E220F]">
-      <img
-        src={backgroundImage}
-        alt="Background restaurant"
-        className="absolute inset-0 h-full w-full object-cover"
-      />
-
-      <div className="absolute inset-0 bg-[rgba(80,30,10,0.28)] backdrop-blur-[3px]" />
-
-      <GameToolbar
-        playerName={playerName}
-        coins={coins}
-        level={level}
-        xp={xp}
-        xpToNext={xpToNext}
-        onBack={onBack}
-        onSettings={() => console.log("open settings")}
-      />
-
-      <div
-        className="relative z-10 h-full w-full"
-        style={{ paddingTop: UI.contentTop }}
-      >
-        {/* Ruban */}
-        <div
-          className="absolute"
-          style={{
-            left: UI.ribbon.x,
-            top: UI.ribbon.y,
-            width: UI.ribbon.w,
-            height: UI.ribbon.h,
-          }}
-        >
+    <ResponsiveGameCanvas
+      designWidth={DESIGN_WIDTH}
+      designHeight={DESIGN_HEIGHT}
+      className="relative h-full w-full overflow-hidden bg-[#4E220F]"
+    >
+      {({ canvasStyle }) => (
+        <>
           <img
-            src={ribbonImage}
-            alt="Ruban"
-            className="h-full w-full object-contain select-none"
-            draggable={false}
+            src={backgroundImage}
+            alt="Background restaurant"
+            className="absolute inset-0 h-full w-full object-cover"
           />
-        </div>
 
-        {/* Cartes recettes en placement manuel */}
-        <div
-          className="absolute"
-          style={{
-            left: UI.cardsArea.x,
-            top: UI.cardsArea.y,
-            width: UI.cardsArea.w,
-            height: UI.cardsArea.h,
-          }}
-        >
-          {displayRecipes.slice(0, 4).map((recipe, index) => {
-            const frame = UI.recipeFrames[index];
-            if (!frame) return null;
+          <div className="absolute inset-0 bg-[rgba(80,30,10,0.28)] backdrop-blur-[3px]" />
 
-            return (
-              <RecipeCard
-                key={recipe.id}
-                recipe={recipe}
-                selected={selectedId === recipe.id}
-                onSelect={setSelectedId}
-                frame={frame}
-              />
-            );
-          })}
-        </div>
-
-        {/* Footer */}
-        <div
-          className="absolute rounded-[22px] border-[3px] border-[#7E431D] bg-[rgba(109,52,21,0.9)] px-4 py-2.5 shadow-[0_6px_0_#5D2C12]"
-          style={{
-            left: UI.footer.x,
-            top: UI.footer.y,
-            width: UI.footer.w,
-            height: UI.footer.h,
-          }}
-        >
-          <div className="flex h-full items-center justify-between gap-3 text-white">
-            <div
-              style={{
-                fontFamily: "Fredoka, sans-serif",
-                fontSize: "1.1rem",
-              }}
-            >
-              {inProgressText} : {progressCurrent}/{progressMax}
-            </div>
+          <div className="absolute inset-0 z-10" style={canvasStyle}>
+            <GameToolbar
+              playerName={playerName}
+              coins={coins}
+              level={level}
+              xp={xp}
+              xpToNext={xpToNext}
+              onBack={onBack}
+              onSettings={() => console.log("open settings")}
+            />
 
             <div
-              className="flex items-center gap-2 text-[#FFD05C]"
-              style={{
-                fontFamily: "Fredoka, sans-serif",
-                fontSize: "1.1rem",
-              }}
+              className="relative h-full w-full"
+              style={{ paddingTop: UI.contentTop }}
             >
-              <Star size={20} fill="currentColor" />
-              <span>+{selectedRecipe?.reward ?? 0}</span>
+              {/* Ruban */}
+              <div
+                className="absolute"
+                style={{
+                  left: UI.ribbon.x,
+                  top: UI.ribbon.y,
+                  width: UI.ribbon.w,
+                  height: UI.ribbon.h,
+                }}
+              >
+                <img
+                  src={ribbonImage}
+                  alt="Ruban"
+                  className="h-full w-full object-contain select-none"
+                  draggable={false}
+                />
+              </div>
+
+              {/* Cartes recettes en placement manuel */}
+              <div
+                className="absolute"
+                style={{
+                  left: UI.cardsArea.x,
+                  top: UI.cardsArea.y,
+                  width: UI.cardsArea.w,
+                  height: UI.cardsArea.h,
+                }}
+              >
+                {displayRecipes.slice(0, 4).map((recipe, index) => {
+                  const frame = UI.recipeFrames[index];
+                  if (!frame) return null;
+
+                  return (
+                    <RecipeCard
+                      key={recipe.id}
+                      recipe={recipe}
+                      selected={selectedId === recipe.id}
+                      onSelect={setSelectedId}
+                      frame={frame}
+                    />
+                  );
+                })}
+              </div>
+
+              {/* Footer */}
+              <div
+                className="absolute rounded-[22px] border-[3px] border-[#7E431D] bg-[rgba(109,52,21,0.9)] px-4 py-2.5 shadow-[0_6px_0_#5D2C12]"
+                style={{
+                  left: UI.footer.x,
+                  top: UI.footer.y,
+                  width: UI.footer.w,
+                  height: UI.footer.h,
+                }}
+              >
+                <div className="flex h-full items-center justify-between gap-3 text-white">
+                  <div
+                    style={{
+                      fontFamily: "Fredoka, sans-serif",
+                      fontSize: "1.1rem",
+                    }}
+                  >
+                    {inProgressText} : {progressCurrent}/{progressMax}
+                  </div>
+
+                  <div
+                    className="flex items-center gap-2 text-[#FFD05C]"
+                    style={{
+                      fontFamily: "Fredoka, sans-serif",
+                      fontSize: "1.1rem",
+                    }}
+                  >
+                    <Star size={20} fill="currentColor" />
+                    <span>+{selectedRecipe?.reward ?? 0}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bouton cuisiner */}
+              <motion.button
+                whileTap={{ scale: 0.97, y: 2 }}
+                whileHover={{ scale: 1.02 }}
+                onClick={() => selectedId && onCook?.(selectedId)}
+                disabled={!selectedId}
+                type="button"
+                className="absolute disabled:opacity-60"
+                style={{
+                  left: UI.cookButton.x,
+                  top: UI.cookButton.y,
+                  width: UI.cookButton.w,
+                  height: UI.cookButton.h,
+                  filter:
+                    "drop-shadow(0 6px 0 #8A4A20) drop-shadow(0 10px 18px rgba(0,0,0,0.22))",
+                }}
+              >
+                <img
+                  src={woodButtonImage}
+                  alt={cookText}
+                  draggable={false}
+                  className="h-full w-full object-fill"
+                />
+                <span
+                  className="absolute inset-0 flex items-center justify-center select-none"
+                  style={{
+                    fontFamily: "Fredoka, sans-serif",
+                    fontSize: "clamp(1.4rem, 4.2vw, 2rem)",
+                    color: "#FFFFFF",
+                    textShadow:
+                      "0 2px 8px rgba(0,0,0,0.5), 0 0 10px rgba(120,55,10,0.15)",
+                    letterSpacing: "0.04em",
+                  }}
+                >
+                  {cookText}
+                </span>
+              </motion.button>
             </div>
           </div>
-        </div>
-
-        {/* Bouton cuisiner */}
-        <motion.button
-          whileTap={{ scale: 0.97, y: 2 }}
-          whileHover={{ scale: 1.02 }}
-          onClick={() => selectedId && onCook?.(selectedId)}
-          disabled={!selectedId}
-          type="button"
-          className="absolute disabled:opacity-60"
-          style={{
-            left: UI.cookButton.x,
-            top: UI.cookButton.y,
-            width: UI.cookButton.w,
-            height: UI.cookButton.h,
-            filter:
-              "drop-shadow(0 6px 0 #8A4A20) drop-shadow(0 10px 18px rgba(0,0,0,0.22))",
-          }}
-        >
-          <img
-            src={woodButtonImage}
-            alt={cookText}
-            draggable={false}
-            className="h-full w-full object-fill"
-          />
-          <span
-            className="absolute inset-0 flex items-center justify-center select-none"
-            style={{
-              fontFamily: "Fredoka, sans-serif",
-              fontSize: "1.7rem",
-              color: "#FFFFFF",
-              textShadow:
-                "0 2px 8px rgba(0,0,0,0.5), 0 0 10px rgba(120,55,10,0.15)",
-              letterSpacing: "0.04em",
-            }}
-          >
-            {cookText}
-          </span>
-        </motion.button>
-      </div>
-    </div>
+        </>
+      )}
+    </ResponsiveGameCanvas>
   );
 }

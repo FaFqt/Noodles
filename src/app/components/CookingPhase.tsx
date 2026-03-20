@@ -22,7 +22,10 @@ import backgroundImage from "../../assets/screens/ChoiceScreen.png";
 import woodButtonImage from "../../assets/ui/ButtonStart.png";
 import checkAsset from "../../assets/ui/Check.svg";
 import GameToolbar from "./GameToolbar";
+import ResponsiveGameCanvas from "./ResponsiveGameCanvas";
 
+const DESIGN_WIDTH = 430;
+const DESIGN_HEIGHT = 780;
 
 type RequiredIngredient =
   | string
@@ -133,7 +136,7 @@ const UI = {
 
   benchArea: {
     x: s(62),
-    y: s(390),
+    y: s(410),
     w: s(300),
     h: s(220),
   },
@@ -153,8 +156,8 @@ const UI = {
   ],
 
   validateButton: {
-    x: s(104),
-    y: s(610),
+    x: s(112),
+    y: s(660),
     w: s(196),
     h: s(56),
   },
@@ -584,35 +587,43 @@ export function CookingPhase({
       : "";
 
   return (
-    <div
-      ref={rootRef}
+    <ResponsiveGameCanvas
+      designWidth={DESIGN_WIDTH}
+      designHeight={DESIGN_HEIGHT}
       className="relative h-full w-full overflow-hidden bg-[#F4E2C7]"
-      onPointerMove={moveDrag}
-      onPointerUp={endDrag}
-      onPointerCancel={endDrag}
     >
-      <img
-        src={backgroundImage}
-        alt="Restaurant background"
-        className="absolute inset-0 h-full w-full object-cover"
-      />
+      {({ canvasStyle }) => (
+        <>
+          <img
+            src={backgroundImage}
+            alt="Restaurant background"
+            className="absolute inset-0 h-full w-full object-cover"
+          />
 
-      <div className="absolute inset-0 bg-gradient-to-b from-[#FFF5E6]/20 via-transparent to-[#3E210E]/12" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#FFF5E6]/20 via-transparent to-[#3E210E]/12" />
 
-      <GameToolbar
-        playerName={playerName}
-        coins={coins}
-        level={level}
-        xp={xp}
-        xpToNext={xpToNext}
-        onBack={onBack}
-        onSettings={() => console.log("open settings")}
-      />
+          <div
+            ref={rootRef}
+            className="absolute inset-0 z-10"
+            style={canvasStyle}
+            onPointerMove={moveDrag}
+            onPointerUp={endDrag}
+            onPointerCancel={endDrag}
+          >
+            <GameToolbar
+              playerName={playerName}
+              coins={coins}
+              level={level}
+              xp={xp}
+              xpToNext={xpToNext}
+              onBack={onBack}
+              onSettings={() => console.log("open settings")}
+            />
 
-      <div
-        className="relative z-10 h-full w-full"
-        style={{ paddingTop: UI.contentTop }}
-      >
+            <div
+              className="relative h-full w-full"
+              style={{ paddingTop: UI.contentTop }}
+            >
         {/* Command bubble */}
         <img
           src={orderBubbleAsset}
@@ -877,38 +888,41 @@ export function CookingPhase({
             {language === "fr" ? "VALIDER LA RECETTE" : "VALIDATE RECIPE"}
           </span>
         </motion.button>
-      </div>
+            </div>
 
-      {/* Drag ghost */}
-      {drag ? (
-        <div
-          className="pointer-events-none absolute z-[90]"
-          style={{
-            left: drag.x,
-            top: drag.y,
-            width: s(88),
-            height: s(64),
-          }}
-        >
-          <div className="flex h-full w-full items-center justify-center rounded-[16px] border-[2px] border-transparent bg-transparent opacity-95">
-            {getBenchAsset(drag.ingredientId) ? (
-              <img
-                src={getBenchAsset(drag.ingredientId)}
-                alt={ingredientDisplayName(drag.ingredientId, language)}
-                className="max-h-[100%] max-w-[95%] object-contain"
-                draggable={false}
-              />
-            ) : (
+            {/* Drag ghost */}
+            {drag ? (
               <div
-                className="text-[28px]"
-                style={{ fontFamily: "Fredoka, sans-serif" }}
+                className="pointer-events-none absolute z-[90]"
+                style={{
+                  left: drag.x,
+                  top: drag.y,
+                  width: s(88),
+                  height: s(64),
+                }}
               >
-                {ingredientEmoji(drag.ingredientId)}
+                <div className="flex h-full w-full items-center justify-center rounded-[16px] border-[2px] border-transparent bg-transparent opacity-95">
+                  {getBenchAsset(drag.ingredientId) ? (
+                    <img
+                      src={getBenchAsset(drag.ingredientId)}
+                      alt={ingredientDisplayName(drag.ingredientId, language)}
+                      className="max-h-[100%] max-w-[95%] object-contain"
+                      draggable={false}
+                    />
+                  ) : (
+                    <div
+                      className="text-[28px]"
+                      style={{ fontFamily: "Fredoka, sans-serif" }}
+                    >
+                      {ingredientEmoji(drag.ingredientId)}
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
+            ) : null}
           </div>
-        </div>
-      ) : null}
-    </div>
+        </>
+      )}
+    </ResponsiveGameCanvas>
   );
 }
