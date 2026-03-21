@@ -73,6 +73,13 @@ const UI = {
     h: s(190),
   },
 
+  bowlTargetZone: {
+    x: s(150),
+    y: s(450),
+    w: s(108),
+    h: s(44),
+  },
+
   progressText: {
     x: s(140),
     y: s(462),
@@ -98,11 +105,23 @@ type ToppingParticle = {
   y: number;
   dx: number;
   dy: number;
-  size: number;
+  width: number;
+  height: number;
   duration: number;
   delay: number;
   color: string;
   rotate: number;
+};
+
+type SettledSesame = {
+  id: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotate: number;
+  color: string;
+  duration: number;
 };
 
 const TOPPING_COLORS = ["#F7E7A8", "#F0D27A", "#D8B25A", "#FFF1C9"];
@@ -193,6 +212,7 @@ export default function ServicePhase({
   const [toppingParticles, setToppingParticles] = useState<ToppingParticle[]>(
     []
   );
+  const [settledSesame, setSettledSesame] = useState<SettledSesame[]>([]);
   const [viewportSize, setViewportSize] = useState({
     width: DESIGN_WIDTH,
     height: DESIGN_HEIGHT,
@@ -278,19 +298,24 @@ export default function ServicePhase({
   };
 
   const spawnToppingParticles = (point: Point) => {
-    const burstSize = 4 + Math.floor(Math.random() * 3);
-    const centerX = UI.bowlZone.x + UI.bowlZone.w * (0.35 + Math.random() * 0.3);
-    const centerY = UI.bowlZone.y + UI.bowlZone.h * (0.35 + Math.random() * 0.18);
+    const burstSize = 7 + Math.floor(Math.random() * 4);
+    const targetX =
+      UI.bowlTargetZone.x + Math.random() * UI.bowlTargetZone.w;
+    const targetY =
+      UI.bowlTargetZone.y + Math.random() * UI.bowlTargetZone.h;
 
     const particles = Array.from({ length: burstSize }, () => {
       const id = particleIdRef.current++;
+      const width = 6 + Math.random() * 5;
+      const height = 2.5 + Math.random() * 1.8;
       return {
         id,
         x: UI.guideZone.x + point.x + (Math.random() * 22 - 11),
         y: UI.guideZone.y + point.y - 4 + (Math.random() * 10 - 5),
-        dx: centerX + (Math.random() * 50 - 25),
-        dy: centerY + (Math.random() * 26 - 13),
-        size: 4 + Math.random() * 4,
+        dx: targetX + (Math.random() * 24 - 12),
+        dy: targetY + (Math.random() * 14 - 7),
+        width,
+        height,
         duration: 0.45 + Math.random() * 0.25,
         delay: Math.random() * 0.08,
         color: TOPPING_COLORS[Math.floor(Math.random() * TOPPING_COLORS.length)],
@@ -298,7 +323,22 @@ export default function ServicePhase({
       };
     });
 
+    const landedSeeds = Array.from({ length: 3 }, () => {
+      const id = particleIdRef.current++;
+      return {
+        id,
+        x: targetX + (Math.random() * 34 - 17),
+        y: targetY + (Math.random() * 14 - 7),
+        width: 7 + Math.random() * 4,
+        height: 3 + Math.random() * 1.5,
+        rotate: Math.random() * 180 - 90,
+        color: TOPPING_COLORS[Math.floor(Math.random() * TOPPING_COLORS.length)],
+        duration: 0.9 + Math.random() * 0.5,
+      };
+    });
+
     setToppingParticles((prev) => [...prev, ...particles]);
+    setSettledSesame((prev) => [...prev, ...landedSeeds]);
 
     particles.forEach((particle) => {
       const timeoutId = window.setTimeout(() => {
@@ -306,6 +346,14 @@ export default function ServicePhase({
           prev.filter((item) => item.id !== particle.id)
         );
       }, (particle.duration + particle.delay) * 1000 + 140);
+
+      particleTimeoutsRef.current.push(timeoutId);
+    });
+
+    landedSeeds.forEach((seed) => {
+      const timeoutId = window.setTimeout(() => {
+        setSettledSesame((prev) => prev.filter((item) => item.id !== seed.id));
+      }, seed.duration * 1000 + 180);
 
       particleTimeoutsRef.current.push(timeoutId);
     });
@@ -522,10 +570,10 @@ export default function ServicePhase({
               style={{
                 left: particle.x,
                 top: particle.y,
-                width: particle.size,
-                height: particle.size * 0.72,
+                width: particle.width,
+                height: particle.height,
                 background: particle.color,
-                boxShadow: `0 0 6px ${particle.color}66`,
+                boxShadow: `0 0 6px ${particle.color}66, 0 1px 2px rgba(120,85,20,0.25)`,
                 transformOrigin: "center",
               }}
               initial={{
@@ -547,6 +595,24 @@ export default function ServicePhase({
                 delay: particle.delay,
                 ease: "easeIn",
               }}
+            />
+          ))}
+
+          {settledSesame.map((seed) => (
+            <motion.div
+              key={seed.id}
+              className="absolute pointer-events-none rounded-full"
+              style={{
+                left: seed.x,
+                top: seed.y,
+                width: seed.width,
+                height: seed.height,
+                background: seed.color,
+                boxShadow: `0 0 4px ${seed.color}55`,
+              }}
+              initial={{ opacity: 0, scale: 0.7 }}
+              animate={{ opacity: [0, 1, 0.95, 0], scale: [0.7, 1, 1, 0.92], rotate: seed.rotate }}
+              transition={{ duration: seed.duration, ease: "easeOut" }}
             />
           ))}
 
