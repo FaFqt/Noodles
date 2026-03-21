@@ -11,6 +11,7 @@ import slot2LockedAsset from "../../assets/ui/Slot_2locked.png";
 import slot3LockedAsset from "../../assets/ui/Slot_3locked.png";
 import { useLanguage } from "../context/LanguageContext";
 import GameToolbar from "./GameToolbar";
+
 const DESIGN_WIDTH = 430;
 const DESIGN_HEIGHT = 780;
 
@@ -110,6 +111,7 @@ export default function NoodlesRestaurantScreen({
 }: RestaurantScreenProps) {
   const { language, t } = useLanguage();
   const rootRef = React.useRef<HTMLDivElement | null>(null);
+  const collectTimeoutRef = React.useRef<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [flyingTokens, setFlyingTokens] = useState<FlyingToken[]>([]);
   const [isCollectingTipJar, setIsCollectingTipJar] = useState(false);
@@ -194,10 +196,9 @@ export default function NoodlesRestaurantScreen({
 
     setFlyingTokens(nextTokens);
 
-    window.setTimeout(() => {
+    collectTimeoutRef.current = window.setTimeout(() => {
       onCollectTipJar?.();
       setFlyingTokens([]);
-      setIsCollectingTipJar(false);
     }, 900);
   };
 
@@ -206,6 +207,14 @@ export default function NoodlesRestaurantScreen({
       setIsCollectingTipJar(false);
     }
   }, [canCollectTipJar]);
+
+  useEffect(() => {
+    return () => {
+      if (collectTimeoutRef.current) {
+        window.clearTimeout(collectTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div

@@ -120,11 +120,13 @@ export default function App() {
 
       return parsedValue > Date.now() ? parsedValue : null;
     });
-  const [restaurantServiceSlotsVisible, setRestaurantServiceSlotsVisible] =
-    useState<boolean>(() => {
-      if (typeof window === 'undefined') return false;
-      return window.localStorage.getItem('restaurantServiceSlotsVisible') === 'true';
-    });
+  const [completedRestaurantDays, setCompletedRestaurantDays] = useState<number>(() => {
+    if (typeof window === 'undefined') return 0;
+
+    const rawValue = window.localStorage.getItem('completedRestaurantDays');
+    const parsedValue = Number(rawValue);
+    return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : 0;
+  });
   const [tipJarTokensAvailable, setTipJarTokensAvailable] = useState(0);
   const [tipJarCollected, setTipJarCollected] = useState(false);
   const [restaurantRewardFeaturesUnlocked, setRestaurantRewardFeaturesUnlocked] =
@@ -377,7 +379,11 @@ export default function App() {
       if (reward.type === 'tipjar_unlock') {
         setRestaurantRewardFeaturesUnlocked(true);
         setTipJarCollected(false);
-        setTipJarTokensAvailable((prev) => prev + (reward.tipJarTokens ?? 0));
+      }
+
+      if (reward.tipJarTokens) {
+        setTipJarCollected(false);
+        setTipJarTokensAvailable((prev) => prev + reward.tipJarTokens!);
       }
 
       if (reward.type === 'coins' && reward.coinsBonus) {
@@ -397,7 +403,7 @@ export default function App() {
     }
 
     const cooldownEndsAt = Date.now() + RESTAURANT_SERVICE_COOLDOWN_MS;
-    setRestaurantServiceSlotsVisible(true);
+    setCompletedRestaurantDays((prev) => prev + 1);
     setRestaurantServicePausedUntil(cooldownEndsAt);
     setDayCoinsEarned(0);
     setDayXpEarned(0);
@@ -422,13 +428,11 @@ export default function App() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    if (restaurantServiceSlotsVisible) {
-      window.localStorage.setItem('restaurantServiceSlotsVisible', 'true');
-      return;
-    }
-
-    window.localStorage.removeItem('restaurantServiceSlotsVisible');
-  }, [restaurantServiceSlotsVisible]);
+    window.localStorage.setItem(
+      'completedRestaurantDays',
+      String(completedRestaurantDays)
+    );
+  }, [completedRestaurantDays]);
 
   useEffect(() => {
     if (!restaurantServicePausedUntil) return;
@@ -517,7 +521,7 @@ export default function App() {
                   level={playerStats.level}
                   xp={playerStats.xp}
                   xpToNext={playerStats.xpToNext}
-                  serviceSlotsVisible={restaurantServiceSlotsVisible}
+                  serviceSlotsVisible={completedRestaurantDays > 0}
                   rewardFeaturesUnlocked={restaurantRewardFeaturesUnlocked}
                   servicePausedUntil={restaurantServicePausedUntil}
                   tipJarTokensAvailable={tipJarTokensAvailable}

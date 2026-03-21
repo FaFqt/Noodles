@@ -1,7 +1,7 @@
 import rewardTipJar from "../../assets/rewards/RewardTipJar.png";
+import rewardCorn from "../../assets/rewards/Corn.png";
 import seedDragonPepper from "../../assets/rewards/DragonPepper.png";
-import seedSakuraMushroom from "../../assets/rewards/SakuraMushroom.png";
-import rewardNewRecipe from "../../assets/rewards/GoldenEgg.png";
+import rewardMoonHerb from "../../assets/rewards/MoonHerb.png";
 
 export interface PlayerStats {
   name: string;
@@ -49,34 +49,46 @@ export const LEVEL_REWARDS: LevelRewardDefinition[] = [
     tipJarTokens: 2,
   },
   {
-    id: "level-3-dragon-pepper",
+    id: "level-3-tokens",
     level: 3,
-    type: "seed",
-    titleFr: "Dragon Pepper débloqué",
-    titleEn: "Dragon Pepper unlocked",
-    descriptionFr: "Une graine spéciale rejoint tes futures récompenses.",
-    descriptionEn: "A special seed joins your future rewards.",
-    image: seedDragonPepper,
+    type: "coins",
+    titleFr: "10 tokens bonus",
+    titleEn: "10 bonus tokens",
+    descriptionFr: "Le chat pourboire reçoit 10 tokens pour le test.",
+    descriptionEn: "The Tip Jar receives 10 tokens for testing.",
+    image: rewardTipJar,
+    tipJarTokens: 10,
   },
   {
-    id: "level-4-sakura-mushroom",
+    id: "level-4-tokens",
     level: 4,
-    type: "seed",
-    titleFr: "Sakura Mushroom débloqué",
-    titleEn: "Sakura Mushroom unlocked",
-    descriptionFr: "Une nouvelle culture rare est maintenant disponible.",
-    descriptionEn: "A rare new crop is now available.",
-    image: seedSakuraMushroom,
+    type: "coins",
+    titleFr: "10 tokens bonus",
+    titleEn: "10 bonus tokens",
+    descriptionFr: "Encore 10 tokens ajoutés au chat pourboire.",
+    descriptionEn: "Another 10 tokens are added to the Tip Jar.",
+    image: rewardTipJar,
+    tipJarTokens: 10,
   },
   {
-    id: "level-5-recipe-special",
+    id: "level-5-corn-seed",
     level: 5,
+    type: "seed",
+    titleFr: "Graines de maïs débloquées",
+    titleEn: "Corn seeds unlocked",
+    descriptionFr: "Une nouvelle graine de maïs est disponible pour le test.",
+    descriptionEn: "A new corn seed is now available for testing.",
+    image: rewardCorn,
+  },
+  {
+    id: "level-6-greenhouse",
+    level: 6,
     type: "recipe",
-    titleFr: "Nouvelle recette débloquée",
-    titleEn: "New recipe unlocked",
-    descriptionFr: "Une recette spéciale rejoint le restaurant.",
-    descriptionEn: "A special recipe joins the restaurant.",
-    image: rewardNewRecipe,
+    titleFr: "Serre débloquée",
+    titleEn: "Greenhouse unlocked",
+    descriptionFr: "La serre est marquée comme débloquée pour le test.",
+    descriptionEn: "The greenhouse is marked as unlocked for testing.",
+    image: rewardMoonHerb,
   },
 ];
 
