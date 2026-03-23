@@ -16,11 +16,11 @@ export const WalletConnect: React.FC<WalletConnectProps> = ({
   className = '',
 }) => {
   const {
-    wallet,
     isConnected,
     isConnecting,
     address,
     balance,
+    profileName,
     network,
     connectWallet,
     disconnectWallet,
@@ -29,9 +29,9 @@ export const WalletConnect: React.FC<WalletConnectProps> = ({
 
   const handleConnect = async () => {
     try {
-      await connectWallet();
-      if (address && onConnect) {
-        onConnect(address);
+      const result = await connectWallet();
+      if (result?.address && onConnect) {
+        onConnect(result.address);
       }
     } catch (error) {
       console.error('Failed to connect wallet:', error);
@@ -74,7 +74,9 @@ export const WalletConnect: React.FC<WalletConnectProps> = ({
         {/* Address */}
         <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
           <CheckCircle className="w-4 h-4 text-green-500" />
-          <span className="font-mono text-sm">{formatAddress(address)}</span>
+          <span className="font-mono text-sm">
+            {profileName ?? formatAddress(address)}
+          </span>
         </div>
 
         {/* Disconnect Button */}

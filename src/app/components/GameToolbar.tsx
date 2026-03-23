@@ -113,6 +113,8 @@ export default function GameToolbar({
   className = "",
 }: GameToolbarProps) {
   const xpRatio = Math.max(0, Math.min(1, xpToNext > 0 ? xp / xpToNext : 0));
+  const displayPlayerName =
+    playerName.length > 12 ? `${playerName.slice(0, 11)}…` : playerName;
 
   return (
     <div
@@ -188,7 +190,7 @@ export default function GameToolbar({
             width: 92,
           }}
         >
-          {playerName}
+          {displayPlayerName}
         </div>
 
         {/* XP Bar */}

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { LanguageProvider } from './context/LanguageContext';
 import { SplashScreen } from './components/SplashScreen';
+import CartridgeConnectScreen from './components/CartridgeConnectScreen';
 import { Village } from './components/Village';
 import { CookingPhase } from './components/CookingPhase';
 import BrothStirPhase from './components/BrothStirPhase';
@@ -15,7 +16,9 @@ import RecipeSelectionScreen, {
   RecipeSelectionItem,
 } from './components/RecipeSelectionScreen';
 import { useIsMobile } from './components/ui/use-mobile';
+import { useCartridgeWallet } from '../hooks/useCartridgeWallet';
 import type { Order } from './types/order';
+import type { PlayerWallet } from './types/playerWallet';
 import {
   applyXpGain,
   getXpToNextLevel,
@@ -37,6 +40,7 @@ import ramenVeggie from '../../src/assets/recipes/ramen-veggie.png';
 
 type GameState =
   | 'splash'
+  | 'cartridgeConnect'
   | 'village'
   | 'restaurant'
   | 'recipeSelection'
@@ -71,6 +75,18 @@ function shuffleArray<T>(array: T[]): T[] {
 export default function App() {
   const RESTAURANT_SERVICE_COOLDOWN_MS = 4 * 60 * 1000;
   const isMobile = useIsMobile();
+  const {
+    isConnected: isCartridgeConnected,
+    isConnecting: isCartridgeConnecting,
+    address: cartridgeAddress,
+    balance: cartridgeBalance,
+    profileName: cartridgeProfileName,
+    network: cartridgeNetwork,
+    error: cartridgeError,
+    connectWallet,
+    disconnectWallet,
+    openProfile: openCartridgeProfile,
+  } = useCartridgeWallet();
 
   const [gameState, setGameState] = useState<GameState>('splash');
 
@@ -82,6 +98,18 @@ export default function App() {
     stars: 4,
     maxStars: 15,
     coins: 10,
+  });
+  const [playerWallet, setPlayerWallet] = useState<PlayerWallet | null>(() => {
+    if (typeof window === 'undefined') return null;
+
+    const rawValue = window.localStorage.getItem('playerWallet');
+    if (!rawValue) return null;
+
+    try {
+      return JSON.parse(rawValue) as PlayerWallet;
+    } catch {
+      return null;
+    }
   });
 
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -159,9 +187,37 @@ export default function App() {
       }))
     ).slice(0, 4)
   );
+  const displayPlayerName = playerWallet?.profileName ?? playerStats.name;
 
   const handleStartGame = () => {
-    setGameState('village');
+    setGameState(playerWallet ? 'village' : 'cartridgeConnect');
+  };
+
+  const handleWalletConnected = async () => {
+    try {
+      await connectWallet();
+      setGameState('village');
+    } catch {
+      // The hook already exposes a user-facing error string.
+    }
+  };
+
+  const handleOpenWalletProfile = async () => {
+    try {
+      if (!isCartridgeConnected) {
+        await connectWallet();
+      }
+
+      await openCartridgeProfile();
+    } catch {
+      // The hook already exposes the error state for the connect screen.
+    }
+  };
+
+  const handleWalletDisconnect = async () => {
+    await disconnectWallet();
+    setPlayerWallet(null);
+    setGameState('cartridgeConnect');
   };
 
   const handleSelectBuilding = (building: string) => {
@@ -412,6 +468,41 @@ export default function App() {
   };
 
   useEffect(() => {
+    if (!cartridgeAddress) return;
+
+    const nextProfileName = cartridgeProfileName ?? playerStats.name;
+
+    setPlayerWallet((prev) => ({
+      provider: 'cartridge',
+      profileName: nextProfileName,
+      address: cartridgeAddress,
+      network: cartridgeNetwork,
+      connectedAt: prev?.connectedAt ?? Date.now(),
+      balance: cartridgeBalance,
+    }));
+
+    setPlayerStats((prev) =>
+      prev.name === nextProfileName
+        ? prev
+        : {
+            ...prev,
+            name: nextProfileName,
+          }
+    );
+  }, [cartridgeAddress, cartridgeBalance, cartridgeNetwork, cartridgeProfileName, playerStats.name]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    if (playerWallet) {
+      window.localStorage.setItem('playerWallet', JSON.stringify(playerWallet));
+      return;
+    }
+
+    window.localStorage.removeItem('playerWallet');
+  }, [playerWallet]);
+
+  useEffect(() => {
     if (typeof window === 'undefined') return;
 
     if (restaurantServicePausedUntil && restaurantServicePausedUntil > Date.now()) {
@@ -504,8 +595,29 @@ export default function App() {
               <SplashScreen onStart={handleStartGame} />
             )}
 
+            {gameState === 'cartridgeConnect' && (
+              <CartridgeConnectScreen
+                isConnecting={isCartridgeConnecting}
+                network={cartridgeNetwork}
+                error={cartridgeError}
+                onConnect={handleWalletConnected}
+              />
+            )}
+
             {gameState === 'village' && (
-              <Village onSelectBuilding={handleSelectBuilding} />
+              <Village
+                onSelectBuilding={handleSelectBuilding}
+                playerWallet={playerWallet}
+                isWalletConnected={isCartridgeConnected}
+                onOpenWalletProfile={handleOpenWalletProfile}
+                onDisconnectWallet={handleWalletDisconnect}
+                walletStats={{
+                  xp: playerStats.xp,
+                  xpToNext: playerStats.xpToNext,
+                  noods: playerStats.coins,
+                  level: playerStats.level,
+                }}
+              />
             )}
 
             {gameState === 'restaurant' && (
@@ -516,7 +628,7 @@ export default function App() {
                 className="h-full w-full"
               >
                 <NoodlesRestaurantScreen
-                  playerName={playerStats.name}
+                  playerName={displayPlayerName}
                   coins={playerStats.coins}
                   level={playerStats.level}
                   xp={playerStats.xp}
@@ -546,7 +658,7 @@ export default function App() {
                   onCook={handleCookSelectedRecipe}
                   progressCurrent={completedServices}
                   progressMax={SERVICES_PER_DAY}
-                  playerName={playerStats.name}
+                  playerName={displayPlayerName}
                   coins={playerStats.coins}
                   level={playerStats.level}
                   xp={playerStats.xp}
@@ -565,7 +677,7 @@ export default function App() {
                 <CookingPhase
                   recipe={selectedRecipe}
                   onComplete={handleCookingComplete}
-                  playerName={playerStats.name}
+                  playerName={displayPlayerName}
                   coins={playerStats.coins}
                   level={playerStats.level}
                   xp={playerStats.xp}
@@ -586,7 +698,7 @@ export default function App() {
                     cookingTimeLeftSeconds ?? selectedRecipe.timer ?? 60
                   }
                   onComplete={handleBrothStirComplete}
-                  playerName={playerStats.name}
+                  playerName={displayPlayerName}
                   coins={playerStats.coins}
                   level={playerStats.level}
                   xp={playerStats.xp}
@@ -607,7 +719,7 @@ export default function App() {
                     cookingTimeLeftSeconds ?? selectedRecipe.timer ?? 60
                   }
                   onComplete={handleServiceComplete}
-                  playerName={playerStats.name}
+                  playerName={displayPlayerName}
                   coins={playerStats.coins}
                   level={playerStats.level}
                   xp={playerStats.xp}

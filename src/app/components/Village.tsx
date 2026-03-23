@@ -4,12 +4,23 @@ import villageImage from '../../assets/screens/Village.png';
 import buttonImage from '../../assets/ui/ButtonOpen.png';
 import { useLanguage } from '../context/LanguageContext';
 import ResponsiveGameCanvas from './ResponsiveGameCanvas';
+import type { PlayerWallet } from '../types/playerWallet';
 
 const DESIGN_WIDTH = 430;
 const DESIGN_HEIGHT = 780;
 
 interface VillageProps {
   onSelectBuilding: (building: string) => void;
+  playerWallet?: PlayerWallet | null;
+  isWalletConnected?: boolean;
+  onOpenWalletProfile?: () => Promise<boolean> | boolean;
+  onDisconnectWallet?: () => Promise<void> | void;
+  walletStats?: {
+    xp: number;
+    xpToNext: number;
+    noods: number;
+    level: number;
+  };
 }
 
 interface Building {
@@ -147,10 +158,23 @@ function OpenButton({ label, onClick }: { label: string; onClick: () => void }) 
   );
 }
 
-export function Village({ onSelectBuilding }: VillageProps) {
+function shortenAddress(address: string) {
+  if (address.length <= 14) return address;
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+export function Village({
+  onSelectBuilding,
+  playerWallet,
+  isWalletConnected = false,
+  onOpenWalletProfile,
+  onDisconnectWallet,
+  walletStats,
+}: VillageProps) {
   const { language, setLanguage, t } = useLanguage();
   const [activeBuilding, setActiveBuilding] = useState<Building | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [walletOpen, setWalletOpen] = useState(false);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -230,13 +254,7 @@ export function Village({ onSelectBuilding }: VillageProps) {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() =>
-                  showToast(
-                    language === 'fr'
-                      ? '🔗 Cartridge Wallet - Bientôt disponible !'
-                      : '🔗 Cartridge Wallet - Coming soon!'
-                  )
-                }
+                onClick={() => setWalletOpen(true)}
                 style={hdrBtn}
               >
                 🎮 Wallet
@@ -258,6 +276,166 @@ export function Village({ onSelectBuilding }: VillageProps) {
                   label={t('openRestaurant')}
                   onClick={handleOpen}
                 />
+              )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+              {walletOpen && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute inset-0 z-[80] flex items-center justify-center bg-[rgba(14,8,2,0.48)] px-6"
+                  onClick={() => setWalletOpen(false)}
+                >
+                  <motion.div
+                    initial={{ opacity: 0, y: 16, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 16, scale: 0.96 }}
+                    transition={{ duration: 0.24 }}
+                    className="w-full max-w-[340px] rounded-[28px] border border-[#f8d9a7]/40 bg-[rgba(46,20,8,0.88)] px-6 py-6 text-[#fff0d4] shadow-[0_18px_50px_rgba(0,0,0,0.35)] backdrop-blur-md"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <div
+                      className="text-center"
+                      style={{
+                        fontFamily: 'Fredoka, sans-serif',
+                        fontSize: '1.1rem',
+                        fontWeight: 700,
+                      }}
+                    >
+                      Cartridge Wallet
+                    </div>
+
+                    {playerWallet ? (
+                      <>
+                        <div
+                          className="mt-5 rounded-[18px] bg-[rgba(255,241,222,0.1)] px-4 py-4"
+                          style={{ fontFamily: 'Fredoka, sans-serif' }}
+                        >
+                          <div className="text-[0.82rem] text-[#f3dcb5]">
+                            {language === 'fr' ? 'Profil' : 'Profile'}
+                          </div>
+                          <div className="mt-1 text-[1rem] font-semibold text-white">
+                            {playerWallet.profileName}
+                          </div>
+                          <div className="mt-3 text-[0.82rem] text-[#f3dcb5]">
+                            {language === 'fr' ? 'Adresse' : 'Address'}
+                          </div>
+                          <div className="mt-1 text-[0.92rem] font-semibold text-white">
+                            {shortenAddress(playerWallet.address)}
+                          </div>
+                        </div>
+
+                        {walletStats ? (
+                          <div className="mt-4 grid grid-cols-2 gap-3">
+                            <div className="rounded-[18px] bg-[rgba(255,241,222,0.1)] px-4 py-3">
+                              <div className="text-[0.8rem] text-[#f3dcb5]">
+                                {language === 'fr' ? 'Niveau' : 'Level'}
+                              </div>
+                              <div className="mt-1 font-semibold text-white">
+                                {walletStats.level}
+                              </div>
+                            </div>
+                            <div className="rounded-[18px] bg-[rgba(255,241,222,0.1)] px-4 py-3">
+                              <div className="text-[0.8rem] text-[#f3dcb5]">
+                                XP
+                              </div>
+                              <div className="mt-1 font-semibold text-white">
+                                {walletStats.xp}/{walletStats.xpToNext}
+                              </div>
+                            </div>
+                            <div className="rounded-[18px] bg-[rgba(255,241,222,0.1)] px-4 py-3">
+                              <div className="text-[0.8rem] text-[#f3dcb5]">
+                                Noods
+                              </div>
+                              <div className="mt-1 font-semibold text-white">
+                                {walletStats.noods}
+                              </div>
+                            </div>
+                            <div className="rounded-[18px] bg-[rgba(255,241,222,0.1)] px-4 py-3">
+                              <div className="text-[0.8rem] text-[#f3dcb5]">
+                                {language === 'fr' ? 'Réseau' : 'Network'}
+                              </div>
+                              <div className="mt-1 font-semibold uppercase text-white">
+                                {playerWallet.network}
+                              </div>
+                            </div>
+                          </div>
+                        ) : null}
+
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => {
+                            if (!onOpenWalletProfile) return;
+                            void onOpenWalletProfile();
+                          }}
+                          disabled={!playerWallet || !onOpenWalletProfile}
+                          className="mt-4 h-[48px] w-full rounded-[18px] border border-[#f8d9a7]/35 bg-[rgba(255,241,222,0.08)] text-white disabled:opacity-45"
+                          style={{
+                            fontFamily: 'Fredoka, sans-serif',
+                            fontWeight: 700,
+                          }}
+                          type="button"
+                        >
+                          {language === 'fr'
+                            ? isWalletConnected
+                              ? 'Ouvrir le wallet Cartridge'
+                              : 'Reconnecter et ouvrir'
+                            : isWalletConnected
+                              ? 'Open Cartridge wallet'
+                              : 'Reconnect and open'}
+                        </motion.button>
+
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => {
+                            setWalletOpen(false);
+                            if (!onDisconnectWallet) return;
+                            void onDisconnectWallet();
+                          }}
+                          disabled={!playerWallet || !onDisconnectWallet}
+                          className="mt-3 h-[48px] w-full rounded-[18px] border border-[#ffb8a6]/35 bg-[rgba(120,28,10,0.36)] text-[#fff1ea] disabled:opacity-45"
+                          style={{
+                            fontFamily: 'Fredoka, sans-serif',
+                            fontWeight: 700,
+                          }}
+                          type="button"
+                        >
+                          {language === 'fr'
+                            ? 'Déconnecter Cartridge'
+                            : 'Disconnect Cartridge'}
+                        </motion.button>
+                      </>
+                    ) : (
+                      <div
+                        className="mt-5 rounded-[18px] bg-[rgba(255,241,222,0.1)] px-4 py-4 text-center text-[0.95rem]"
+                        style={{ fontFamily: 'Fredoka, sans-serif' }}
+                      >
+                        {language === 'fr'
+                          ? "Aucun wallet Cartridge n'est connecte."
+                          : 'No Cartridge wallet is connected.'}
+                      </div>
+                    )}
+
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => setWalletOpen(false)}
+                      className="mt-5 h-[50px] w-full rounded-[18px] bg-[linear-gradient(180deg,#ffcf67_0%,#ea8e30_100%)] text-white"
+                      style={{
+                        fontFamily: 'Fredoka, sans-serif',
+                        fontWeight: 700,
+                        textShadow: '0 2px 8px rgba(0,0,0,0.25)',
+                      }}
+                      type="button"
+                    >
+                      {language === 'fr' ? 'Fermer' : 'Close'}
+                    </motion.button>
+                  </motion.div>
+                </motion.div>
               )}
             </AnimatePresence>
 

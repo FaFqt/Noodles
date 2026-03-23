@@ -46,11 +46,9 @@ const UI = {
     xp: { x: s(170), y: s(272), w: s(130), h: s(24) },
   },
 
-  boardCenterReward: { x: s(128), y: s(182), w: s(148), h: s(92) },
-
   chest: { x: s(116), y: s(400), w: s(172), h: s(132) },
 
-  rewardAppear: { x: s(80), y: s(150), w: s(250), h: s(170) },
+  rewardAppear: { x: s(100), y: s(185), w: s(200), h: s(120) },
 
   rewardTitle: { x: s(62), y: s(330), w: s(280), h: s(28) },
   rewardDescription: { x: s(58), y: s(360), w: s(288), h: s(44) },
@@ -336,39 +334,7 @@ export default function RewardScreen({
                   +{globalStats.totalXp} XP
                 </div>
               </motion.div>
-            ) : (
-              <motion.div
-                key="reward"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.25 }}
-              >
-                <div
-                  className="absolute flex items-center justify-center"
-                  style={{
-                    left: UI.boardCenterReward.x - UI.board.x,
-                    top: UI.boardCenterReward.y - UI.board.y,
-                    width: UI.boardCenterReward.w,
-                    height: UI.boardCenterReward.h,
-                  }}
-                >
-                  <motion.img
-                    src={reward?.image}
-                    alt={rewardTitle}
-                    draggable={false}
-                    className="max-h-full max-w-full object-contain"
-                    initial={{ opacity: 0, scale: 0.5, y: 24 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    transition={{
-                      type: "spring",
-                      stiffness: 220,
-                      damping: 16,
-                    }}
-                  />
-                </div>
-              </motion.div>
-            )}
+            ) : null}
           </AnimatePresence>
         </motion.div>
 
