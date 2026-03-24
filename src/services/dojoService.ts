@@ -6,8 +6,16 @@ type RegisterPlayerStatus =
   | 'skipped'
   | 'failed';
 
+type SyncPlayerStatus = 'synced' | 'missing' | 'skipped' | 'failed';
+
 export interface RegisterPlayerResult {
   status: RegisterPlayerStatus;
+  message: string;
+  txHash?: string | null;
+}
+
+export interface SyncPlayerResult {
+  status: SyncPlayerStatus;
   message: string;
   txHash?: string | null;
 }
@@ -43,6 +51,13 @@ function isPlayerAlreadyRegisteredError(error: unknown) {
     message.includes('PLAYER_ALREADY_REGISTERED') ||
     message.includes('already registered')
   );
+}
+
+function isPlayerMissingError(error: unknown) {
+  const message =
+    error instanceof Error ? error.message : typeof error === 'string' ? error : '';
+
+  return message.includes('player_missing') || message.includes('PLAYER_NOT_REGISTERED');
 }
 
 export async function registerPlayerOnDojo(params: {
@@ -93,6 +108,51 @@ export async function registerPlayerOnDojo(params: {
         error instanceof Error
           ? error.message
           : 'Dojo registration failed after wallet connection.',
+    };
+  }
+}
+
+export async function syncPlayerOnDojo(params: { wallet: any }): Promise<SyncPlayerResult> {
+  if (!DOJO_PLAYER_SYSTEM_ADDRESS || DOJO_PLAYER_SYSTEM_ADDRESS === '0x0') {
+    return {
+      status: 'skipped',
+      message:
+        'Dojo player system address is not configured yet. Wallet connected successfully; onchain sync was skipped.',
+    };
+  }
+
+  try {
+    const tx = await params.wallet.execute([
+      {
+        contractAddress: DOJO_PLAYER_SYSTEM_ADDRESS,
+        entrypoint: 'touch_login',
+        calldata: [],
+      },
+    ]);
+
+    if (typeof tx?.wait === 'function') {
+      await tx.wait();
+    }
+
+    return {
+      status: 'synced',
+      message: 'Player state successfully synced on Dojo.',
+      txHash: tx?.hash ?? tx?.transaction_hash ?? null,
+    };
+  } catch (error) {
+    if (isPlayerMissingError(error)) {
+      return {
+        status: 'missing',
+        message: 'Player does not exist on Dojo yet.',
+      };
+    }
+
+    console.error('Failed to sync player on Dojo:', error);
+
+    return {
+      status: 'failed',
+      message:
+        error instanceof Error ? error.message : 'Dojo sync failed after wallet connection.',
     };
   }
 }

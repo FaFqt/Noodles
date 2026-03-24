@@ -6,6 +6,12 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite",
+    "dojo:build": "cd dojo && sozo build",
+    "dojo:test": "cd dojo && sozo test",
+    "dojo:inspect": "cd dojo && sozo inspect",
+    "dojo:migrate:dev": "cd dojo && sozo migrate",
+    "dojo:migrate:sepolia": "cd dojo && sozo migrate --profile sepolia",
+    "dojo:katana": "katana --dev --dev.no-fee",
     "install-scarb": "curl --proto '=https' --tlsv1.2 -sSf https://install.scarb.sh | sh",
     "install-starknet-foundry": "curl -L https://raw.githubusercontent.com/foundry-rs/starknet-foundry/master/installation/scripts/install.sh | sh",
     "cairo-build": "scarb build",

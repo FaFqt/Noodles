@@ -1,0 +1,20 @@
+[world]
+name = "Noodles"
+seed = "noodles-sepolia"
+description = "Noodles Sepolia deployment"
+
+[env]
+rpc_url = "https://api.cartridge.gg/x/starknet/sepolia"
+world_address = "0x0628e0b61780e8c7fc8db657ace8587e5dbdc313623e30f84d73cdb19fc75317"
+
+
+[namespace]
+default = "noodles"
+
+[writers]
+"noodles" = [
+  "noodles-player_system",
+  "noodles-unlock_system",
+  "noodles-greenhouse_system",
+  "noodles-reward_system",
+]

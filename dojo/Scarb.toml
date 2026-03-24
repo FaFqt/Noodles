@@ -18,3 +18,7 @@ dojo_cairo_test = "1.7.1"
 
 [tool.scarb]
 allow-prebuilt-plugins = ["dojo_cairo_macros"]
+
+[profile.dev]
+
+[profile.sepolia]

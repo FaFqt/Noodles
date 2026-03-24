@@ -11,7 +11,9 @@ pub trait IPlayerSystem<TContractState> {
 pub mod player_system {
     use super::IPlayerSystem;
     use noodles_dojo::models::{PlayerInventory, PlayerProfile, PlayerUnlocks};
-    use noodles_dojo::utils::errors::PLAYER_ALREADY_REGISTERED;
+    use noodles_dojo::utils::errors::{
+        PLAYER_ALREADY_REGISTERED, PLAYER_NOT_REGISTERED,
+    };
     use starknet::{ContractAddress, get_block_timestamp, get_caller_address};
     use dojo::event::EventStorage;
     use dojo::model::ModelStorage;
@@ -86,6 +88,8 @@ pub mod player_system {
             let player = get_caller_address();
             let mut profile: PlayerProfile = world.read_model(player);
             let now = get_block_timestamp();
+
+            assert(profile.created_at != 0, PLAYER_NOT_REGISTERED);
 
             profile.last_login_at = now;
 

@@ -5,6 +5,9 @@ target/
 .env
 .env.local
 .env.*.local
+dojo/.env.sepolia
+dojo/.env.sepolia.local
 .vscode/
 *.swp
 *.zip
+dojo/manifest_*.json

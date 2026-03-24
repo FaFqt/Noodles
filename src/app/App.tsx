@@ -22,6 +22,7 @@ import type { PlayerWallet } from './types/playerWallet';
 import {
   checkPlayerRegistrationOnDojo,
   registerPlayerOnDojo,
+  syncPlayerOnDojo,
 } from '../services/dojoService';
 import {
   applyXpGain,
@@ -76,6 +77,26 @@ function shuffleArray<T>(array: T[]): T[] {
   return copy;
 }
 
+const DOJO_REGISTERED_PLAYERS_STORAGE_KEY = 'dojoRegisteredPlayers';
+
+function readKnownDojoPlayers() {
+  if (typeof window === 'undefined') return new Set<string>();
+
+  const rawValue = window.localStorage.getItem(DOJO_REGISTERED_PLAYERS_STORAGE_KEY);
+  if (!rawValue) return new Set<string>();
+
+  try {
+    const parsed = JSON.parse(rawValue) as string[];
+    return new Set(
+      parsed
+        .filter((value): value is string => typeof value === 'string' && value.length > 0)
+        .map((value) => value.toLowerCase())
+    );
+  } catch {
+    return new Set<string>();
+  }
+}
+
 export default function App() {
   const RESTAURANT_SERVICE_COOLDOWN_MS = 4 * 60 * 1000;
   const isMobile = useIsMobile();
@@ -90,6 +111,7 @@ export default function App() {
     connectWallet,
     disconnectWallet,
     openProfile: openCartridgeProfile,
+    openProfileForWallet,
   } = useCartridgeWallet();
 
   const [gameState, setGameState] = useState<GameState>('splash');
@@ -169,6 +191,7 @@ export default function App() {
   >([]);
   const [walletSyncMessage, setWalletSyncMessage] = useState<string | null>(null);
   const [dojoRegistrationConfirmed, setDojoRegistrationConfirmed] = useState(false);
+  const [knownDojoPlayers, setKnownDojoPlayers] = useState<Set<string>>(readKnownDojoPlayers);
 
   const allRecipeCards: RecipeSelectionItem[] = useMemo(
     () =>
@@ -205,7 +228,59 @@ export default function App() {
       setWalletSyncMessage(null);
       const result = await connectWallet();
 
-      if (result?.wallet && result.profileName) {
+      if (result?.wallet && result.profileName && result.address) {
+        const normalizedAddress = result.address.toLowerCase();
+        const cachedWalletMatches =
+          playerWallet?.address?.toLowerCase() === normalizedAddress &&
+          playerWallet?.dojoRegistered;
+        const knownPlayerMatches = knownDojoPlayers.has(normalizedAddress);
+        const remoteRegistrationState =
+          cachedWalletMatches || knownPlayerMatches
+            ? true
+            : await checkPlayerRegistrationOnDojo({
+                playerAddress: result.address,
+                network: result.network,
+              });
+
+        if (remoteRegistrationState === true) {
+          setDojoRegistrationConfirmed(true);
+          setKnownDojoPlayers((prev) => {
+            const next = new Set(prev);
+            next.add(normalizedAddress);
+            return next;
+          });
+          setWalletSyncMessage('Compte joueur deja present onchain sur Dojo.');
+          setGameState('village');
+          return;
+        }
+
+        if (remoteRegistrationState === null) {
+          const dojoSync = await syncPlayerOnDojo({ wallet: result.wallet });
+
+          if (dojoSync.status === 'synced') {
+            setDojoRegistrationConfirmed(true);
+            setKnownDojoPlayers((prev) => {
+              const next = new Set(prev);
+              next.add(normalizedAddress);
+              return next;
+            });
+            setWalletSyncMessage(
+              'Etat onchain verifie par synchronisation Cartridge sur Dojo.'
+            );
+            setGameState('village');
+            return;
+          }
+
+          if (dojoSync.status === 'failed') {
+            setDojoRegistrationConfirmed(false);
+            setWalletSyncMessage(
+              `Wallet reconnecte, mais la synchronisation Dojo a echoue: ${dojoSync.message}`
+            );
+            setGameState('village');
+            return;
+          }
+        }
+
         const dojoRegistration = await registerPlayerOnDojo({
           wallet: result.wallet,
           username: result.profileName,
@@ -216,6 +291,11 @@ export default function App() {
           dojoRegistration.status === 'already_registered'
         ) {
           setDojoRegistrationConfirmed(true);
+          setKnownDojoPlayers((prev) => {
+            const next = new Set(prev);
+            next.add(normalizedAddress);
+            return next;
+          });
           setWalletSyncMessage(
             dojoRegistration.status === 'registered'
               ? 'Compte joueur enregistre onchain sur Dojo.'
@@ -242,11 +322,22 @@ export default function App() {
 
   const handleOpenWalletProfile = async () => {
     try {
+      let walletToOpen: any | null = null;
+
       if (!isCartridgeConnected) {
-        await connectWallet();
+        const result = await connectWallet();
+        walletToOpen = result?.wallet ?? null;
       }
 
-      await openCartridgeProfile();
+      const didOpen = walletToOpen
+        ? await openProfileForWallet(walletToOpen)
+        : await openCartridgeProfile();
+
+      if (!didOpen) {
+        setWalletSyncMessage(
+          'La session Cartridge a bien ete reconnectee, mais le profil n’a pas pu etre ouvert automatiquement.'
+        );
+      }
     } catch {
       // The hook already exposes the error state for the connect screen.
     }
@@ -563,6 +654,13 @@ export default function App() {
       if (isCancelled || isRegistered === null) return;
 
       setDojoRegistrationConfirmed(isRegistered);
+      if (isRegistered) {
+        setKnownDojoPlayers((prev) => {
+          const next = new Set(prev);
+          next.add(playerWallet.address.toLowerCase());
+          return next;
+        });
+      }
       setPlayerWallet((prev) =>
         prev
           ? {
@@ -579,6 +677,15 @@ export default function App() {
       isCancelled = true;
     };
   }, [playerWallet?.address, playerWallet?.network]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    window.localStorage.setItem(
+      DOJO_REGISTERED_PLAYERS_STORAGE_KEY,
+      JSON.stringify(Array.from(knownDojoPlayers))
+    );
+  }, [knownDojoPlayers]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

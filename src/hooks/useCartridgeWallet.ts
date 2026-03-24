@@ -133,11 +133,11 @@ export const useCartridgeWallet = () => {
     }
   }, [state.wallet, state.network]);
 
-  const openProfile = useCallback(async () => {
-    if (!state.wallet?.getController) return false;
+  const openProfileForWallet = useCallback(async (wallet: any | null | undefined) => {
+    if (!wallet?.getController) return false;
 
     try {
-      const controller = state.wallet.getController();
+      const controller = wallet.getController();
       if (controller?.openProfile) {
         await controller.openProfile();
         return true;
@@ -147,7 +147,11 @@ export const useCartridgeWallet = () => {
     }
 
     return false;
-  }, [state.wallet]);
+  }, []);
+
+  const openProfile = useCallback(async () => {
+    return openProfileForWallet(state.wallet);
+  }, [openProfileForWallet, state.wallet]);
 
   // Auto-refresh balance every 30 seconds when connected
   useEffect(() => {
@@ -164,5 +168,6 @@ export const useCartridgeWallet = () => {
     switchNetwork,
     refreshBalance,
     openProfile,
+    openProfileForWallet,
   };
 };
