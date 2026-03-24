@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import villageImage from '../../assets/screens/Village.png';
 import buttonImage from '../../assets/ui/ButtonOpen.png';
@@ -175,6 +175,10 @@ export function Village({
   const [activeBuilding, setActiveBuilding] = useState<Building | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [walletOpen, setWalletOpen] = useState(false);
+  const isDojoSynced = Boolean(playerWallet?.dojoRegistered);
+  const canOpenWalletProfile = Boolean(
+    playerWallet && onOpenWalletProfile && (isWalletConnected || isDojoSynced)
+  );
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -204,6 +208,20 @@ export function Village({
   const toggleLanguage = () => {
     setLanguage(language === 'fr' ? 'en' : 'fr');
   };
+
+  useEffect(() => {
+    if (!walletOpen || !playerWallet || isWalletConnected) return;
+
+    showToast(
+      isDojoSynced
+        ? language === 'fr'
+          ? 'Session Cartridge inactive. Reconnecte le wallet pour ouvrir le profil.'
+          : 'Cartridge session is inactive. Reconnect the wallet to open the profile.'
+        : language === 'fr'
+          ? 'Profil local detecte. Reconnecte Cartridge pour acceder au wallet et lancer la sync onchain.'
+          : 'Local profile detected. Reconnect Cartridge to access the wallet and start onchain sync.'
+    );
+  }, [walletOpen, playerWallet, isWalletConnected, isDojoSynced, language, showToast]);
 
   const hdrBtn = {
     background: 'rgba(255,255,255,0.15)',
@@ -309,6 +327,25 @@ export function Village({
 
                     {playerWallet ? (
                       <>
+                        <div className="mt-4 flex items-center justify-center">
+                          <div
+                            className={`rounded-full px-4 py-2 text-[0.8rem] font-semibold ${
+                              isDojoSynced
+                                ? 'border border-[#c9ef98]/40 bg-[rgba(54,95,20,0.34)] text-[#ebffd0]'
+                                : 'border border-[#f2d39c]/35 bg-[rgba(89,58,14,0.34)] text-[#ffe9bc]'
+                            }`}
+                            style={{ fontFamily: 'Fredoka, sans-serif' }}
+                          >
+                            {isDojoSynced
+                              ? language === 'fr'
+                                ? 'Synchronise onchain'
+                                : 'Synced onchain'
+                              : language === 'fr'
+                                ? 'Profil local uniquement'
+                                : 'Local profile only'}
+                          </div>
+                        </div>
+
                         <div
                           className="mt-5 rounded-[18px] bg-[rgba(255,241,222,0.1)] px-4 py-4"
                           style={{ fontFamily: 'Fredoka, sans-serif' }}
@@ -324,6 +361,18 @@ export function Village({
                           </div>
                           <div className="mt-1 text-[0.92rem] font-semibold text-white">
                             {shortenAddress(playerWallet.address)}
+                          </div>
+                          <div className="mt-3 text-[0.82rem] text-[#f3dcb5]">
+                            {language === 'fr' ? 'Statut Dojo' : 'Dojo status'}
+                          </div>
+                          <div className="mt-1 text-[0.92rem] font-semibold text-white">
+                            {isDojoSynced
+                              ? language === 'fr'
+                                ? 'Compte enregistre sur Dojo'
+                                : 'Player registered on Dojo'
+                              : language === 'fr'
+                                ? 'Pas encore synchronise onchain'
+                                : 'Not synced onchain yet'}
                           </div>
                         </div>
 
@@ -364,29 +413,52 @@ export function Village({
                           </div>
                         ) : null}
 
-                        <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={() => {
-                            if (!onOpenWalletProfile) return;
-                            void onOpenWalletProfile();
-                          }}
-                          disabled={!playerWallet || !onOpenWalletProfile}
-                          className="mt-4 h-[48px] w-full rounded-[18px] border border-[#f8d9a7]/35 bg-[rgba(255,241,222,0.08)] text-white disabled:opacity-45"
-                          style={{
-                            fontFamily: 'Fredoka, sans-serif',
-                            fontWeight: 700,
-                          }}
-                          type="button"
-                        >
-                          {language === 'fr'
-                            ? isWalletConnected
-                              ? 'Ouvrir le wallet Cartridge'
-                              : 'Reconnecter et ouvrir'
-                            : isWalletConnected
-                              ? 'Open Cartridge wallet'
-                              : 'Reconnect and open'}
-                        </motion.button>
+                        {!isWalletConnected ? (
+                          <div
+                            className={`mt-4 rounded-[18px] px-4 py-3 text-[0.84rem] ${
+                              isDojoSynced
+                                ? 'border border-[#bde0ff]/30 bg-[rgba(20,51,84,0.34)] text-[#ddefff]'
+                                : 'border border-[#f2d39c]/35 bg-[rgba(89,58,14,0.28)] text-[#ffe8bf]'
+                            }`}
+                            style={{
+                              fontFamily: 'Fredoka, sans-serif',
+                              lineHeight: 1.4,
+                            }}
+                          >
+                            {isDojoSynced
+                              ? language === 'fr'
+                                ? 'La session live Cartridge est inactive. Tu peux reconnecter le wallet pour rouvrir ton profil.'
+                                : 'The live Cartridge session is inactive. Reconnect the wallet to reopen your profile.'
+                              : language === 'fr'
+                                ? 'Ce profil est encore local. Reconnecte Cartridge depuis l’ecran de connexion pour acceder au wallet et lancer la synchronisation onchain.'
+                                : 'This profile is still local. Reconnect Cartridge from the connect screen to access the wallet and start onchain sync.'}
+                          </div>
+                        ) : null}
+
+                        {canOpenWalletProfile ? (
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => {
+                              if (!onOpenWalletProfile) return;
+                              void onOpenWalletProfile();
+                            }}
+                            className="mt-4 h-[48px] w-full rounded-[18px] border border-[#f8d9a7]/35 bg-[rgba(255,241,222,0.08)] text-white"
+                            style={{
+                              fontFamily: 'Fredoka, sans-serif',
+                              fontWeight: 700,
+                            }}
+                            type="button"
+                          >
+                            {language === 'fr'
+                              ? isWalletConnected
+                                ? 'Ouvrir le wallet Cartridge'
+                                : 'Reconnecter et ouvrir'
+                              : isWalletConnected
+                                ? 'Open Cartridge wallet'
+                                : 'Reconnect and open'}
+                          </motion.button>
+                        ) : null}
 
                         <motion.button
                           whileHover={{ scale: 1.02 }}

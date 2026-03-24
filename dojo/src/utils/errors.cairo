@@ -1,0 +1,10 @@
+pub const PLAYER_ALREADY_REGISTERED: felt252 = 'player_exists';
+pub const PLAYER_NOT_REGISTERED: felt252 = 'player_missing';
+pub const FEATURE_ALREADY_UNLOCKED: felt252 = 'feature_exists';
+pub const GREENHOUSE_LOCKED: felt252 = 'greenhouse_lock';
+pub const MARKET_LOCKED: felt252 = 'market_locked';
+pub const INSUFFICIENT_SEEDS: felt252 = 'not_enough_seed';
+pub const PLOT_ALREADY_ACTIVE: felt252 = 'plot_active';
+pub const PLOT_NOT_ACTIVE: felt252 = 'plot_empty';
+pub const PLOT_NOT_READY: felt252 = 'plot_not_ready';
+pub const DAILY_REWARD_ALREADY_CLAIMED: felt252 = 'daily_claimed';

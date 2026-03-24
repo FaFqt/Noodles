@@ -5,4 +5,5 @@ export interface PlayerWallet {
   network: "sepolia" | "mainnet";
   connectedAt: number;
   balance?: string | null;
+  dojoRegistered?: boolean;
 }

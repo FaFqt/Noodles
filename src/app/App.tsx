@@ -20,6 +20,10 @@ import { useCartridgeWallet } from '../hooks/useCartridgeWallet';
 import type { Order } from './types/order';
 import type { PlayerWallet } from './types/playerWallet';
 import {
+  checkPlayerRegistrationOnDojo,
+  registerPlayerOnDojo,
+} from '../services/dojoService';
+import {
   applyXpGain,
   getXpToNextLevel,
   type LevelRewardDefinition,
@@ -163,6 +167,8 @@ export default function App() {
   const [pendingLevelRewards, setPendingLevelRewards] = useState<
     { reward: LevelRewardDefinition; level: number }[]
   >([]);
+  const [walletSyncMessage, setWalletSyncMessage] = useState<string | null>(null);
+  const [dojoRegistrationConfirmed, setDojoRegistrationConfirmed] = useState(false);
 
   const allRecipeCards: RecipeSelectionItem[] = useMemo(
     () =>
@@ -190,12 +196,44 @@ export default function App() {
   const displayPlayerName = playerWallet?.profileName ?? playerStats.name;
 
   const handleStartGame = () => {
+    setWalletSyncMessage(null);
     setGameState(playerWallet ? 'village' : 'cartridgeConnect');
   };
 
   const handleWalletConnected = async () => {
     try {
-      await connectWallet();
+      setWalletSyncMessage(null);
+      const result = await connectWallet();
+
+      if (result?.wallet && result.profileName) {
+        const dojoRegistration = await registerPlayerOnDojo({
+          wallet: result.wallet,
+          username: result.profileName,
+        });
+
+        if (
+          dojoRegistration.status === 'registered' ||
+          dojoRegistration.status === 'already_registered'
+        ) {
+          setDojoRegistrationConfirmed(true);
+          setWalletSyncMessage(
+            dojoRegistration.status === 'registered'
+              ? 'Compte joueur enregistre onchain sur Dojo.'
+              : 'Compte joueur deja present onchain sur Dojo.'
+          );
+        } else if (dojoRegistration.status === 'skipped') {
+          setDojoRegistrationConfirmed(false);
+          setWalletSyncMessage(
+            'Wallet connecte. L’enregistrement Dojo sera active quand l’adresse du system sera configuree.'
+          );
+        } else {
+          setDojoRegistrationConfirmed(false);
+          setWalletSyncMessage(
+            `Wallet connecte, mais l’enregistrement Dojo a echoue: ${dojoRegistration.message}`
+          );
+        }
+      }
+
       setGameState('village');
     } catch {
       // The hook already exposes a user-facing error string.
@@ -216,6 +254,7 @@ export default function App() {
 
   const handleWalletDisconnect = async () => {
     await disconnectWallet();
+    setDojoRegistrationConfirmed(false);
     setPlayerWallet(null);
     setGameState('cartridgeConnect');
   };
@@ -479,6 +518,7 @@ export default function App() {
       network: cartridgeNetwork,
       connectedAt: prev?.connectedAt ?? Date.now(),
       balance: cartridgeBalance,
+      dojoRegistered: dojoRegistrationConfirmed || prev?.dojoRegistered || false,
     }));
 
     setPlayerStats((prev) =>
@@ -489,7 +529,14 @@ export default function App() {
             name: nextProfileName,
           }
     );
-  }, [cartridgeAddress, cartridgeBalance, cartridgeNetwork, cartridgeProfileName, playerStats.name]);
+  }, [
+    cartridgeAddress,
+    cartridgeBalance,
+    cartridgeNetwork,
+    cartridgeProfileName,
+    dojoRegistrationConfirmed,
+    playerStats.name,
+  ]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -501,6 +548,37 @@ export default function App() {
 
     window.localStorage.removeItem('playerWallet');
   }, [playerWallet]);
+
+  useEffect(() => {
+    if (!playerWallet?.address) return;
+
+    let isCancelled = false;
+
+    const syncDojoRegistration = async () => {
+      const isRegistered = await checkPlayerRegistrationOnDojo({
+        playerAddress: playerWallet.address,
+        network: playerWallet.network,
+      });
+
+      if (isCancelled || isRegistered === null) return;
+
+      setDojoRegistrationConfirmed(isRegistered);
+      setPlayerWallet((prev) =>
+        prev
+          ? {
+              ...prev,
+              dojoRegistered: isRegistered,
+            }
+          : prev
+      );
+    };
+
+    void syncDojoRegistration();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [playerWallet?.address, playerWallet?.network]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -600,6 +678,7 @@ export default function App() {
                 isConnecting={isCartridgeConnecting}
                 network={cartridgeNetwork}
                 error={cartridgeError}
+                syncMessage={walletSyncMessage}
                 onConnect={handleWalletConnected}
               />
             )}

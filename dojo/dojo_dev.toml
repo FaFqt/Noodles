@@ -1,0 +1,19 @@
+[world]
+name = "Noodles"
+seed = "noodles"
+
+[namespace]
+default = "noodles"
+
+[env]
+rpc_url = "http://localhost:5050/"
+account_address = "0x0"
+private_key = "0x0"
+
+[writers]
+"noodles" = [
+  "noodles-player_system",
+  "noodles-unlock_system",
+  "noodles-greenhouse_system",
+  "noodles-reward_system",
+]
