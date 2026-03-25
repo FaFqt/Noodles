@@ -7,6 +7,8 @@ type RegisterPlayerStatus =
   | 'failed';
 
 type SyncPlayerStatus = 'synced' | 'missing' | 'skipped' | 'failed';
+type SyncProgressStatus = 'synced' | 'skipped' | 'failed';
+type ResetProgressStatus = 'reset' | 'skipped' | 'failed';
 
 export interface RegisterPlayerResult {
   status: RegisterPlayerStatus;
@@ -16,6 +18,18 @@ export interface RegisterPlayerResult {
 
 export interface SyncPlayerResult {
   status: SyncPlayerStatus;
+  message: string;
+  txHash?: string | null;
+}
+
+export interface SyncProgressResult {
+  status: SyncProgressStatus;
+  message: string;
+  txHash?: string | null;
+}
+
+export interface ResetProgressResult {
+  status: ResetProgressStatus;
   message: string;
   txHash?: string | null;
 }
@@ -178,5 +192,92 @@ export async function checkPlayerRegistrationOnDojo(params: {
   } catch (error) {
     console.error('Failed to check Dojo player registration:', error);
     return null;
+  }
+}
+
+export async function syncPlayerProgressOnDojo(params: {
+  wallet: any;
+  level: number;
+  xp: number;
+  xpToNext: number;
+  noodsBalance: number;
+}): Promise<SyncProgressResult> {
+  if (!DOJO_PLAYER_SYSTEM_ADDRESS || DOJO_PLAYER_SYSTEM_ADDRESS === '0x0') {
+    return {
+      status: 'skipped',
+      message: 'Dojo player system address is not configured yet. Progress sync was skipped.',
+    };
+  }
+
+  try {
+    const tx = await params.wallet.execute([
+      {
+        contractAddress: DOJO_PLAYER_SYSTEM_ADDRESS,
+        entrypoint: 'sync_player_progress',
+        calldata: CallData.compile({
+          level: params.level,
+          xp: params.xp,
+          xp_to_next: params.xpToNext,
+          noods_balance: params.noodsBalance,
+        }),
+      },
+    ]);
+
+    if (typeof tx?.wait === 'function') {
+      await tx.wait();
+    }
+
+    return {
+      status: 'synced',
+      message: 'Player progress synced on Dojo.',
+      txHash: tx?.hash ?? tx?.transaction_hash ?? null,
+    };
+  } catch (error) {
+    console.error('Failed to sync player progress on Dojo:', error);
+
+    return {
+      status: 'failed',
+      message:
+        error instanceof Error ? error.message : 'Dojo progress sync failed after wallet update.',
+    };
+  }
+}
+
+export async function resetPlayerProgressOnDojo(params: {
+  wallet: any;
+}): Promise<ResetProgressResult> {
+  if (!DOJO_PLAYER_SYSTEM_ADDRESS || DOJO_PLAYER_SYSTEM_ADDRESS === '0x0') {
+    return {
+      status: 'skipped',
+      message: 'Dojo player system address is not configured yet. Progress reset was skipped.',
+    };
+  }
+
+  try {
+    const tx = await params.wallet.execute([
+      {
+        contractAddress: DOJO_PLAYER_SYSTEM_ADDRESS,
+        entrypoint: 'reset_player_progress_for_dev',
+        calldata: [],
+      },
+    ]);
+
+    if (typeof tx?.wait === 'function') {
+      await tx.wait();
+    }
+
+    return {
+      status: 'reset',
+      message: 'Player progress reset on Dojo for development.',
+      txHash: tx?.hash ?? tx?.transaction_hash ?? null,
+    };
+  } catch (error) {
+    console.error('Failed to reset player progress on Dojo:', error);
+
+    return {
+      status: 'failed',
+      message:
+        error instanceof Error ? error.message : 'Dojo progress reset failed in development mode.',
+    };
   }
 }

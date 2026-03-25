@@ -15,6 +15,8 @@ interface VillageProps {
   isWalletConnected?: boolean;
   onOpenWalletProfile?: () => Promise<boolean> | boolean;
   onDisconnectWallet?: () => Promise<void> | void;
+  canResetProgress?: boolean;
+  onResetProgress?: () => Promise<void> | void;
   walletStats?: {
     xp: number;
     xpToNext: number;
@@ -169,6 +171,8 @@ export function Village({
   isWalletConnected = false,
   onOpenWalletProfile,
   onDisconnectWallet,
+  canResetProgress = false,
+  onResetProgress,
   walletStats,
 }: VillageProps) {
   const { language, setLanguage, t } = useLanguage();
@@ -489,6 +493,26 @@ export function Village({
                             ? 'Déconnecter Cartridge'
                             : 'Disconnect Cartridge'}
                         </motion.button>
+
+                        {canResetProgress && onResetProgress ? (
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => {
+                              void onResetProgress();
+                            }}
+                            className="mt-3 h-[48px] w-full rounded-[18px] border border-[#f3d287]/35 bg-[rgba(111,74,14,0.34)] text-[#fff4d8]"
+                            style={{
+                              fontFamily: 'Fredoka, sans-serif',
+                              fontWeight: 700,
+                            }}
+                            type="button"
+                          >
+                            {language === 'fr'
+                              ? 'Reset progression dev'
+                              : 'Reset dev progression'}
+                          </motion.button>
+                        ) : null}
                       </>
                     ) : (
                       <div

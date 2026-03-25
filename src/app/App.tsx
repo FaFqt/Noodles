@@ -22,7 +22,9 @@ import type { PlayerWallet } from './types/playerWallet';
 import {
   checkPlayerRegistrationOnDojo,
   registerPlayerOnDojo,
+  resetPlayerProgressOnDojo,
   syncPlayerOnDojo,
+  syncPlayerProgressOnDojo,
 } from '../services/dojoService';
 import {
   applyXpGain,
@@ -78,6 +80,17 @@ function shuffleArray<T>(array: T[]): T[] {
 }
 
 const DOJO_REGISTERED_PLAYERS_STORAGE_KEY = 'dojoRegisteredPlayers';
+const DEV_PROGRESS_RESET_ENABLED =
+  import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEV_RESET === 'true';
+const INITIAL_PLAYER_STATS = {
+  name: 'Bento-chan',
+  level: 1,
+  xp: 0,
+  xpToNext: getXpToNextLevel(1),
+  stars: 4,
+  maxStars: 15,
+  coins: 10,
+};
 
 function readKnownDojoPlayers() {
   if (typeof window === 'undefined') return new Set<string>();
@@ -101,6 +114,7 @@ export default function App() {
   const RESTAURANT_SERVICE_COOLDOWN_MS = 4 * 60 * 1000;
   const isMobile = useIsMobile();
   const {
+    wallet: cartridgeWallet,
     isConnected: isCartridgeConnected,
     isConnecting: isCartridgeConnecting,
     address: cartridgeAddress,
@@ -117,15 +131,7 @@ export default function App() {
 
   const [gameState, setGameState] = useState<GameState>('splash');
 
-  const [playerStats, setPlayerStats] = useState({
-    name: 'Bento-chan',
-    level: 1,
-    xp: 0,
-    xpToNext: getXpToNextLevel(1),
-    stars: 4,
-    maxStars: 15,
-    coins: 10,
-  });
+  const [playerStats, setPlayerStats] = useState(INITIAL_PLAYER_STATS);
   const [playerWallet, setPlayerWallet] = useState<PlayerWallet | null>(null);
 
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -356,6 +362,40 @@ export default function App() {
     if (building === 'restaurant') {
       setGameState('restaurant');
     }
+  };
+
+  const handleResetProgressForDev = async () => {
+    if (!cartridgeWallet || !playerWallet?.dojoRegistered) {
+      setWalletSyncMessage(
+        'Le reset dev exige une session Cartridge active et un profil deja synchronise onchain.'
+      );
+      return;
+    }
+
+    const resetResult = await resetPlayerProgressOnDojo({ wallet: cartridgeWallet });
+
+    if (resetResult.status === 'failed') {
+      setWalletSyncMessage(`Le reset dev a echoue: ${resetResult.message}`);
+      return;
+    }
+
+    setPlayerStats(INITIAL_PLAYER_STATS);
+    setCompletedServices(0);
+    setDayCoinsEarned(0);
+    setDayXpEarned(0);
+    setDayServiceResults([]);
+    setCompletedRestaurantDays(0);
+    setRestaurantServicePausedUntil(null);
+    setTipJarTokensAvailable(0);
+    setTipJarCollected(false);
+    setRestaurantRewardFeaturesUnlocked(false);
+    setClaimedLevelRewardIds([]);
+    setPendingLevelRewards([]);
+    setWalletSyncMessage(
+      resetResult.status === 'reset'
+        ? 'Progression remise a zero pour le dev. Retour a l’etat initial.'
+        : resetResult.message
+    );
   };
 
   const handleEnterRestaurant = () => {
@@ -674,6 +714,40 @@ export default function App() {
   }, [playerWallet?.address, playerWallet?.network]);
 
   useEffect(() => {
+    if (!cartridgeWallet || !isCartridgeConnected || !playerWallet?.dojoRegistered) return;
+
+    let isCancelled = false;
+
+    const syncProgress = async () => {
+      const result = await syncPlayerProgressOnDojo({
+        wallet: cartridgeWallet,
+        level: playerStats.level,
+        xp: playerStats.xp,
+        xpToNext: playerStats.xpToNext,
+        noodsBalance: playerStats.coins,
+      });
+
+      if (isCancelled || result.status !== 'failed') return;
+
+      setWalletSyncMessage(`La sync onchain de la progression a echoue: ${result.message}`);
+    };
+
+    void syncProgress();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    cartridgeWallet,
+    isCartridgeConnected,
+    playerStats.coins,
+    playerStats.level,
+    playerStats.xp,
+    playerStats.xpToNext,
+    playerWallet?.dojoRegistered,
+  ]);
+
+  useEffect(() => {
     if (typeof window === 'undefined') return;
 
     window.localStorage.setItem(
@@ -794,6 +868,8 @@ export default function App() {
                 isWalletConnected={isCartridgeConnected}
                 onOpenWalletProfile={handleOpenWalletProfile}
                 onDisconnectWallet={handleWalletDisconnect}
+                canResetProgress={DEV_PROGRESS_RESET_ENABLED}
+                onResetProgress={handleResetProgressForDev}
                 walletStats={{
                   xp: playerStats.xp,
                   xpToNext: playerStats.xpToNext,
