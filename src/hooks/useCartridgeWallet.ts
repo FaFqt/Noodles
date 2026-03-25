@@ -1,5 +1,10 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { StarkSDK, OnboardStrategy, sepoliaTokens, mainnetTokens } from 'starkzap';
+import { useCallback, useEffect, useState } from 'react';
+import { constants } from 'starknet';
+import {
+  cartridgeController,
+  cartridgeDefaultNetwork,
+  getCartridgeNetworkFromChainId,
+} from '../services/cartridgeController';
 
 interface CartridgeWalletState {
   wallet: any | null;
@@ -11,6 +16,14 @@ interface CartridgeWalletState {
   network: 'sepolia' | 'mainnet';
   error: string | null;
   statusMessage: string | null;
+}
+
+export interface ConnectedCartridgeWallet {
+  wallet: any;
+  address: string;
+  balance: string | null;
+  profileName: string;
+  network: 'sepolia' | 'mainnet';
 }
 
 function describeCartridgeError(error: unknown) {
@@ -48,19 +61,27 @@ function describeCartridgeError(error: unknown) {
 function toUserFacingCartridgeError(message: string) {
   const normalizedMessage = message.toLowerCase();
 
-  if (normalizedMessage.includes('failed to initialize')) {
-    return 'Cartridge Controller failed to initialize on this device. Wait a moment, then try again. If no window opens, return to the browser and allow the Cartridge popup.';
+  if (normalizedMessage.includes('popup') || normalizedMessage.includes('popups')) {
+    return 'Cartridge n’a pas pu terminer l’ouverture. Autorise la fenetre Controller puis relance la connexion.';
   }
 
-  if (normalizedMessage.includes('popup') || normalizedMessage.includes('popups')) {
-    return 'Cartridge could not finish opening. Return to the browser and allow the Cartridge popup, then try again.';
+  if (normalizedMessage.includes('rejected') || normalizedMessage.includes('canceled')) {
+    return 'La demande Cartridge a ete annulee avant la creation de la session.';
+  }
+
+  if (normalizedMessage.includes('policies')) {
+    return 'La session Cartridge n’a pas pu etre autorisee avec les policies du jeu. Reessaie la connexion pour valider l’autorisation unique.';
   }
 
   if (normalizedMessage.includes('without starknet address')) {
-    return 'Cartridge returned an incomplete session without a Starknet address. Please reopen the Controller and try again.';
+    return 'Cartridge a renvoye une session incomplete sans adresse Starknet exploitable.';
   }
 
   return message;
+}
+
+function getFallbackProfileName(address: string) {
+  return `Chef-${address.slice(-4)}`;
 }
 
 export const useCartridgeWallet = () => {
@@ -71,88 +92,77 @@ export const useCartridgeWallet = () => {
     address: null,
     balance: null,
     profileName: null,
-    network: 'sepolia', // Default to sepolia for development
+    network: cartridgeDefaultNetwork,
     error: null,
     statusMessage: null,
   });
 
-  const sdk = useMemo(
-    () =>
-      new StarkSDK({
-        network: state.network,
-      }),
-    [state.network]
-  );
-
   const hydrateWalletState = useCallback(
-    async (wallet: any) => {
-      const controller =
-        typeof wallet?.getController === 'function' ? wallet.getController() : null;
-      if (!controller) {
-        throw new Error(
-          'Cartridge Controller initialized without a live controller instance.'
-        );
+    async (wallet: any): Promise<ConnectedCartridgeWallet> => {
+      const nextAddress =
+        typeof wallet?.address === 'string' && wallet.address.length > 0
+          ? wallet.address
+          : null;
+
+      if (!nextAddress) {
+        throw new Error('Cartridge wallet connected without Starknet address.');
       }
 
-      const tokens = state.network === 'mainnet' ? mainnetTokens : sepoliaTokens;
-      const [balanceAmount, profileName] = await Promise.all([
-        wallet.balanceOf(tokens.ETH).catch(() => null),
-        typeof wallet.username === 'function'
-          ? wallet.username().catch(() => undefined)
-          : Promise.resolve(undefined),
-      ]);
+      let profileName: string | null = null;
+      let nextNetwork = state.network;
 
-      const address = typeof wallet.address === 'string' ? wallet.address : null;
-      if (!address) {
-        throw new Error(
-          'Cartridge wallet connected without Starknet address. The mobile session may not have completed.'
-        );
+      try {
+        const username = await cartridgeController.username();
+        if (typeof username === 'string' && username.trim().length > 0) {
+          profileName = username.trim();
+        }
+      } catch (error) {
+        console.warn('Failed to read Cartridge username:', error);
       }
 
-      const nextProfileName =
-        typeof profileName === 'string' && profileName.trim().length > 0
-          ? profileName
-          : address
-            ? `Chef-${address.slice(-4)}`
-            : null;
+      try {
+        const chainId = await wallet.getChainId?.();
+        nextNetwork = getCartridgeNetworkFromChainId(chainId);
+      } catch (error) {
+        console.warn('Failed to read Cartridge chain id:', error);
+      }
+
+      const nextProfileName = profileName ?? getFallbackProfileName(nextAddress);
 
       setState((prev) => ({
         ...prev,
         wallet,
-        isConnected: Boolean(address),
+        isConnected: true,
         isConnecting: false,
-        address,
-        balance: balanceAmount ? balanceAmount.toFormatted() : null,
+        address: nextAddress,
+        balance: null,
         profileName: nextProfileName,
+        network: nextNetwork,
         error: null,
         statusMessage: null,
       }));
 
       return {
         wallet,
-        address,
-        balance: balanceAmount ? balanceAmount.toFormatted() : null,
+        address: nextAddress,
+        balance: null,
         profileName: nextProfileName,
-        network: state.network,
+        network: nextNetwork,
       };
     },
     [state.network]
   );
 
-  const connectWallet = useCallback(async () => {
+  const connectWallet = useCallback(async (): Promise<ConnectedCartridgeWallet> => {
     let slowOpenReminder: number | undefined;
 
     try {
       setState((prev) => ({
         ...prev,
         isConnecting: true,
-        isConnected: false,
-        wallet: null,
-        address: null,
-        balance: null,
-        profileName: null,
         error: null,
-        statusMessage: 'Initialisation du Cartridge Controller...',
+        statusMessage:
+          'Ouverture du Cartridge Controller. Une autorisation unique des actions du jeu peut etre demandee.',
       }));
 
       if (typeof window !== 'undefined') {
@@ -162,40 +172,26 @@ export const useCartridgeWallet = () => {
               ? {
                   ...prev,
                   statusMessage:
-                    'Le Controller met du temps a s’ouvrir. Sur smartphone, reviens au navigateur et autorise la fenetre Cartridge si besoin.',
+                    'Le Controller met du temps a s’ouvrir. Reviens au navigateur et autorise la fenetre Cartridge si besoin.',
                 }
               : prev
           );
         }, 2500);
       }
 
-      const { wallet } = await sdk.onboard({
-        strategy: OnboardStrategy.Cartridge,
-        deploy: 'if_needed',
-        onProgress: ({ step }) => {
-          const stepMessage =
-            step === 'CONNECTED'
-              ? 'Session Cartridge ouverte. Verification du compte...'
-              : step === 'CHECK_DEPLOYED'
-                ? 'Verification du compte Starknet...'
-                : step === 'DEPLOYING'
-                  ? 'Deploiement du compte Starknet si necessaire...'
-                  : step === 'READY'
-                    ? 'Connexion terminee. Recuperation du profil...'
-                    : step === 'FAILED'
-                      ? 'Cartridge a signale un echec pendant l’initialisation.'
-                      : 'Initialisation du Cartridge Controller...';
+      const wallet = await cartridgeController.connect();
 
-          setState((prev) =>
-            prev.isConnecting
-              ? {
-                  ...prev,
-                  statusMessage: stepMessage,
-                }
-              : prev
-          );
-        },
-      });
+      if (!wallet) {
+        throw new Error('Cartridge Controller failed to initialize.');
+      }
+
+      if (state.network !== cartridgeDefaultNetwork) {
+        await cartridgeController.switchStarknetChain(
+          state.network === 'mainnet'
+            ? constants.StarknetChainId.SN_MAIN
+            : constants.StarknetChainId.SN_SEPOLIA
+        );
+      }
 
       if (typeof window !== 'undefined' && slowOpenReminder) {
         window.clearTimeout(slowOpenReminder);
@@ -203,7 +199,7 @@ export const useCartridgeWallet = () => {
 
       setState((prev) => ({
         ...prev,
-        statusMessage: 'Connexion confirmee. Recuperation du profil Cartridge...',
+        statusMessage: 'Session ouverte. Lecture du profil et des droits de session...',
       }));
 
       return hydrateWalletState(wallet);
@@ -215,91 +211,97 @@ export const useCartridgeWallet = () => {
       const detailedMessage = describeCartridgeError(error);
       const userFacingMessage = toUserFacingCartridgeError(detailedMessage);
       console.error('Failed to connect Cartridge wallet:', error);
+
       setState((prev) => ({
         ...prev,
+        wallet: null,
+        isConnected: false,
         isConnecting: false,
+        address: null,
+        profileName: null,
+        balance: null,
         error: userFacingMessage,
         statusMessage: null,
       }));
+
       throw error;
     }
-  }, [hydrateWalletState, sdk]);
+  }, [hydrateWalletState, state.network]);
 
   const disconnectWallet = useCallback(async () => {
     try {
-      if (state.wallet) {
-        const controller =
-          typeof state.wallet.getController === 'function'
-            ? state.wallet.getController()
-            : null;
-
-        if (controller?.logout) {
-          await controller.logout();
-          return;
-        }
-
-        await state.wallet.disconnect?.();
-      }
-
-      setState((prev) => ({
+      await cartridgeController.disconnect();
+    } catch (error) {
+      console.error('Failed to disconnect Cartridge wallet:', error);
+    } finally {
+      setState({
         wallet: null,
         isConnected: false,
         isConnecting: false,
         address: null,
         balance: null,
         profileName: null,
-        network: prev.network,
+        network: cartridgeDefaultNetwork,
         error: null,
         statusMessage: null,
-      }));
-    } catch (error) {
-      console.error('Failed to disconnect wallet:', error);
+      });
     }
-  }, [state.wallet]);
-
-  const switchNetwork = useCallback((network: 'sepolia' | 'mainnet') => {
-    setState((prev) => ({ ...prev, network, error: null, statusMessage: null }));
   }, []);
 
-  const refreshBalance = useCallback(async () => {
-    if (!state.wallet) return;
+  const switchNetwork = useCallback(async (network: 'sepolia' | 'mainnet') => {
+    setState((prev) => ({ ...prev, network, error: null, statusMessage: null }));
 
-    try {
-      const tokens = state.network === 'mainnet' ? mainnetTokens : sepoliaTokens;
-      const balance = await state.wallet.balanceOf(tokens.ETH);
-      setState((prev) => ({ ...prev, balance: balance.toFormatted() }));
-    } catch (error) {
-      console.error('Failed to refresh balance:', error);
+    if (!state.isConnected) {
+      return;
     }
-  }, [state.wallet, state.network]);
 
-  const openProfileForWallet = useCallback(async (wallet: any | null | undefined) => {
-    if (!wallet?.getController) return false;
+    await cartridgeController.switchStarknetChain(
+      network === 'mainnet'
+        ? constants.StarknetChainId.SN_MAIN
+        : constants.StarknetChainId.SN_SEPOLIA
+    );
+  }, [state.isConnected]);
 
+  const refreshBalance = useCallback(async () => {
+    setState((prev) => ({ ...prev, balance: prev.balance ?? null }));
+  }, []);
+
+  const openProfileForWallet = useCallback(async (_wallet: any | null | undefined) => {
     try {
-      const controller = wallet.getController();
-      if (controller?.openProfile) {
-        await controller.openProfile();
-        return true;
-      }
+      await cartridgeController.openProfile();
+      return true;
     } catch (error) {
       console.error('Failed to open Cartridge profile:', error);
+      return false;
     }
-
-    return false;
   }, []);
 
   const openProfile = useCallback(async () => {
     return openProfileForWallet(state.wallet);
   }, [openProfileForWallet, state.wallet]);
 
-  // Auto-refresh balance every 30 seconds when connected
   useEffect(() => {
-    if (!state.isConnected) return;
+    let isCancelled = false;
 
-    const interval = setInterval(refreshBalance, 30000);
-    return () => clearInterval(interval);
-  }, [state.isConnected, refreshBalance]);
+    const probeExistingSession = async () => {
+      try {
+        const wallet = await cartridgeController.probe();
+        if (!wallet || isCancelled) {
+          return;
+        }
+
+        await hydrateWalletState(wallet);
+      } catch (error) {
+        console.error('Failed to probe existing Cartridge session:', error);
+      }
+    };
+
+    void probeExistingSession();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [hydrateWalletState]);
 
   return {
     ...state,

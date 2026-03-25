@@ -86,6 +86,7 @@ const DOJO_RPC_URL =
   import.meta.env.VITE_DOJO_RPC_URL?.trim() ??
   import.meta.env.VITE_STARKNET_RPC_URL?.trim() ??
   '';
+const unsupportedReadEntrypoints = new Set<string>();
 
 function createDojoProvider(network: 'sepolia' | 'mainnet') {
   const nodeUrl =
@@ -121,9 +122,50 @@ function feltToBoolean(value: string | null | undefined) {
   return value === '0x1' || value === '1';
 }
 
+function getErrorMessage(error: unknown): string {
+  if (typeof error === 'string') {
+    return error;
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (typeof error === 'object' && error !== null) {
+    const maybeError = error as {
+      message?: unknown;
+      shortMessage?: unknown;
+      details?: unknown;
+      cause?: unknown;
+      data?: unknown;
+    };
+
+    const candidates = [
+      maybeError.message,
+      maybeError.shortMessage,
+      maybeError.details,
+      maybeError.data,
+      typeof maybeError.cause === 'object' && maybeError.cause !== null
+        ? (maybeError.cause as { message?: unknown }).message
+        : maybeError.cause,
+    ];
+
+    for (const candidate of candidates) {
+      if (typeof candidate === 'string' && candidate.trim().length > 0) {
+        return candidate;
+      }
+    }
+  }
+
+  return '';
+}
+
+function getUnsupportedEntrypointCacheKey(contractAddress: string, entrypoint: string) {
+  return `${contractAddress.toLowerCase()}:${entrypoint}`;
+}
+
 function isPlayerAlreadyRegisteredError(error: unknown) {
-  const message =
-    error instanceof Error ? error.message : typeof error === 'string' ? error : '';
+  const message = getErrorMessage(error);
 
   return (
     message.includes('player_exists') ||
@@ -133,26 +175,24 @@ function isPlayerAlreadyRegisteredError(error: unknown) {
 }
 
 function isPlayerMissingError(error: unknown) {
-  const message =
-    error instanceof Error ? error.message : typeof error === 'string' ? error : '';
+  const message = getErrorMessage(error);
 
   return message.includes('player_missing') || message.includes('PLAYER_NOT_REGISTERED');
 }
 
 function isMissingEntrypointError(error: unknown) {
-  const message =
-    error instanceof Error ? error.message : typeof error === 'string' ? error : '';
+  const message = getErrorMessage(error);
 
   return (
     message.includes('Entry point') ||
     message.includes('ENTRYPOINT_NOT_FOUND') ||
-    message.includes('Requested entry point was not found')
+    message.includes('Requested entry point was not found') ||
+    message.includes('Requested entrypoint does not exist in the contract')
   );
 }
 
 function isFeatureAlreadyUnlockedError(error: unknown) {
-  const message =
-    error instanceof Error ? error.message : typeof error === 'string' ? error : '';
+  const message = getErrorMessage(error);
 
   return (
     message.includes('FEATURE_ALREADY_UNLOCKED') ||
@@ -327,6 +367,15 @@ export async function getPlayerInventoryOnDojo(params: {
     return null;
   }
 
+  const cacheKey = getUnsupportedEntrypointCacheKey(
+    DOJO_PLAYER_SYSTEM_ADDRESS,
+    'get_player_inventory'
+  );
+
+  if (unsupportedReadEntrypoints.has(cacheKey)) {
+    return null;
+  }
+
   try {
     const provider = createDojoProvider(params.network);
     const result = await provider.callContract({
@@ -348,6 +397,7 @@ export async function getPlayerInventoryOnDojo(params: {
     };
   } catch (error) {
     if (isMissingEntrypointError(error)) {
+      unsupportedReadEntrypoints.add(cacheKey);
       return null;
     }
 
@@ -361,6 +411,15 @@ export async function getPlayerUnlocksOnDojo(params: {
   network: 'sepolia' | 'mainnet';
 }): Promise<OnchainPlayerUnlocks | null> {
   if (!DOJO_PLAYER_SYSTEM_ADDRESS || DOJO_PLAYER_SYSTEM_ADDRESS === '0x0') {
+    return null;
+  }
+
+  const cacheKey = getUnsupportedEntrypointCacheKey(
+    DOJO_PLAYER_SYSTEM_ADDRESS,
+    'get_player_unlocks'
+  );
+
+  if (unsupportedReadEntrypoints.has(cacheKey)) {
     return null;
   }
 
@@ -383,6 +442,7 @@ export async function getPlayerUnlocksOnDojo(params: {
     };
   } catch (error) {
     if (isMissingEntrypointError(error)) {
+      unsupportedReadEntrypoints.add(cacheKey);
       return null;
     }
 

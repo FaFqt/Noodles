@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { LanguageProvider } from './context/LanguageContext';
 import { SplashScreen } from './components/SplashScreen';
@@ -16,7 +16,10 @@ import RecipeSelectionScreen, {
   RecipeSelectionItem,
 } from './components/RecipeSelectionScreen';
 import { useIsMobile } from './components/ui/use-mobile';
-import { useCartridgeWallet } from '../hooks/useCartridgeWallet';
+import {
+  type ConnectedCartridgeWallet,
+  useCartridgeWallet,
+} from '../hooks/useCartridgeWallet';
 import type { Order } from './types/order';
 import type { PlayerWallet } from './types/playerWallet';
 import {
@@ -354,6 +357,7 @@ export default function App() {
   const [isWalletSyncing, setIsWalletSyncing] = useState(false);
   const [hasHydratedOnchainProgress, setHasHydratedOnchainProgress] = useState(false);
   const [hasPendingProgressSync, setHasPendingProgressSync] = useState(false);
+  const bootstrappedWalletAddressRef = useRef<string | null>(null);
 
   const allRecipeCards: RecipeSelectionItem[] = useMemo(
     () =>
@@ -446,6 +450,21 @@ export default function App() {
     []
   );
 
+  const resetWalletSessionState = useCallback(() => {
+    setWalletSyncMessage(null);
+    setPlayerWallet(null);
+    setDojoRegistrationConfirmed(false);
+    setHasHydratedOnchainProgress(false);
+    setTipJarTokensAvailable(0);
+    setTipJarCollected(false);
+    setRestaurantRewardFeaturesUnlocked(false);
+    setGreenhouseUnlocked(false);
+    setPlayerInventory(INITIAL_PLAYER_INVENTORY);
+    setClaimedLevelRewardIds([]);
+    setPendingLevelRewards([]);
+    setHasPendingProgressSync(false);
+  }, []);
+
   const queueProgressCheckpointSync = useCallback(() => {
     setHasPendingProgressSync(true);
   }, []);
@@ -525,24 +544,11 @@ export default function App() {
     []
   );
 
-  const handleWalletConnected = async () => {
-    try {
-      setWalletSyncMessage(null);
-      setPlayerWallet(null);
-      setDojoRegistrationConfirmed(false);
-      setHasHydratedOnchainProgress(false);
-      setTipJarTokensAvailable(0);
-      setTipJarCollected(false);
-      setRestaurantRewardFeaturesUnlocked(false);
-      setGreenhouseUnlocked(false);
-      setPlayerInventory(INITIAL_PLAYER_INVENTORY);
-      setClaimedLevelRewardIds([]);
-      setPendingLevelRewards([]);
-      setHasPendingProgressSync(false);
-      const result = await connectWallet();
+  const bootstrapWalletSession = useCallback(
+    async (result: ConnectedCartridgeWallet) => {
+      setIsWalletSyncing(true);
 
-      if (result?.wallet && result.address) {
-        setIsWalletSyncing(true);
+      try {
         const normalizedAddress = result.address.toLowerCase();
         restoreWalletRewardState(result.address, null);
         const cachedWalletMatches =
@@ -662,6 +668,28 @@ export default function App() {
         }
 
         setGameState('village');
+      } finally {
+        setIsWalletSyncing(false);
+      }
+    },
+    [
+      hydrateProgressFromDojo,
+      knownDojoPlayers,
+      playerWallet?.address,
+      playerWallet?.dojoRegistered,
+      restoreWalletProgressState,
+      restoreWalletRewardState,
+    ]
+  );
+
+  const handleWalletConnected = async () => {
+    try {
+      resetWalletSessionState();
+      const result = await connectWallet();
+
+      if (result?.wallet && result.address) {
+        bootstrappedWalletAddressRef.current = result.address.toLowerCase();
+        await bootstrapWalletSession(result);
         return;
       }
 
@@ -670,8 +698,6 @@ export default function App() {
       );
     } catch {
       // The hook already exposes a user-facing error string.
-    } finally {
-      setIsWalletSyncing(false);
     }
   };
 
@@ -699,17 +725,8 @@ export default function App() {
   };
 
   const handleWalletDisconnect = async () => {
-    setDojoRegistrationConfirmed(false);
-    setHasHydratedOnchainProgress(false);
-    setPlayerWallet(null);
-    setTipJarTokensAvailable(0);
-    setTipJarCollected(false);
-    setRestaurantRewardFeaturesUnlocked(false);
-    setGreenhouseUnlocked(false);
-    setPlayerInventory(INITIAL_PLAYER_INVENTORY);
-    setClaimedLevelRewardIds([]);
-    setPendingLevelRewards([]);
-    setHasPendingProgressSync(false);
+    bootstrappedWalletAddressRef.current = null;
+    resetWalletSessionState();
     setWalletSyncMessage(null);
     setGameState('cartridgeConnect');
     await disconnectWallet();
@@ -1049,6 +1066,42 @@ export default function App() {
     setDayServiceResults([]);
     setGameState('restaurant');
   };
+
+  useEffect(() => {
+    if (!isCartridgeConnected || !cartridgeWallet || !cartridgeAddress) {
+      bootstrappedWalletAddressRef.current = null;
+      return;
+    }
+
+    const normalizedAddress = cartridgeAddress.toLowerCase();
+    if (bootstrappedWalletAddressRef.current === normalizedAddress) {
+      return;
+    }
+
+    bootstrappedWalletAddressRef.current = normalizedAddress;
+    resetWalletSessionState();
+
+    void bootstrapWalletSession({
+      wallet: cartridgeWallet,
+      address: cartridgeAddress,
+      balance: cartridgeBalance,
+      profileName:
+        cartridgeProfileName ??
+        playerWallet?.profileName ??
+        `Chef-${cartridgeAddress.slice(-4)}`,
+      network: cartridgeNetwork,
+    });
+  }, [
+    bootstrapWalletSession,
+    cartridgeAddress,
+    cartridgeBalance,
+    cartridgeNetwork,
+    cartridgeProfileName,
+    cartridgeWallet,
+    isCartridgeConnected,
+    playerWallet?.profileName,
+    resetWalletSessionState,
+  ]);
 
   useEffect(() => {
     if (!cartridgeAddress || !isCartridgeConnected) {
