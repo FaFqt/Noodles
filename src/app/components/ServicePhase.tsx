@@ -60,9 +60,9 @@ const UI = {
   },
 
   guideZone: {
-    x: s(28),
+    x: s(52),
     y: s(280),
-    w: s(348),
+    w: s(300),
     h: s(110),
   },
 
@@ -160,12 +160,12 @@ function sampleQuadraticBezier(
 }
 
 function buildGuidePoints(width: number, height: number) {
-  const p0 = { x: width * 0.06, y: height * 0.70 };
-  const p1 = { x: width * 0.25, y: height * 0.95 };
-  const p2 = { x: width * 0.46, y: height * 0.52 };
+  const p0 = { x: width * 0.12, y: height * 0.70 };
+  const p1 = { x: width * 0.30, y: height * 0.95 };
+  const p2 = { x: width * 0.48, y: height * 0.52 };
 
-  const p3 = { x: width * 0.68, y: height * 0.18 };
-  const p4 = { x: width * 0.94, y: height * 0.56 };
+  const p3 = { x: width * 0.68, y: height * 0.20 };
+  const p4 = { x: width * 0.88, y: height * 0.56 };
 
   const first = sampleQuadraticBezier(p0, p1, p2, 28);
   const second = sampleQuadraticBezier(p2, p3, p4, 28);
@@ -645,10 +645,10 @@ export default function ServicePhase({
             ref={guideRef}
             className="absolute"
             style={{
-              left: UI.guideZone.x - s(14),
-              top: UI.guideZone.y - s(12),
-              width: UI.guideZone.w + s(28),
-              height: UI.guideZone.h + s(24),
+              left: UI.guideZone.x - s(8),
+              top: UI.guideZone.y - s(8),
+              width: UI.guideZone.w + s(16),
+              height: UI.guideZone.h + s(16),
               touchAction: "none",
             }}
             onPointerDown={handlePointerDown}

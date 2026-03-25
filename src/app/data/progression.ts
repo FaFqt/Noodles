@@ -72,7 +72,7 @@ export const LEVEL_REWARDS: LevelRewardDefinition[] = [
     titleEn: "10 bonus tokens",
     descriptionFr: "Encore 10 tokens ajoutés au chat pourboire.",
     descriptionEn: "Another 10 tokens are added to the Tip Jar.",
-    image: rewardTipJar,
+    image: rewardToken,
     tipJarTokens: 10,
   },
   {

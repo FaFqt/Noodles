@@ -493,7 +493,8 @@ export default function App() {
           xp: onchainSnapshot.progress.xp,
           xpToNext:
             onchainSnapshot.progress.xpToNext || INITIAL_PLAYER_STATS.xpToNext,
-          coins: onchainSnapshot.inventory?.noodsBalance ?? prev.coins,
+          coins:
+            onchainSnapshot.inventory?.noodsBalance ?? storedState.playerStats.coins,
         }));
       }
 
