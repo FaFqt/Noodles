@@ -11,6 +11,7 @@ interface CartridgeConnectScreenProps {
   isSyncing?: boolean;
   network: "sepolia" | "mainnet";
   error?: string | null;
+  statusMessage?: string | null;
   syncMessage?: string | null;
   onConnect: () => Promise<void> | void;
 }
@@ -20,6 +21,7 @@ export default function CartridgeConnectScreen({
   isSyncing = false,
   network,
   error,
+  statusMessage,
   syncMessage,
   onConnect,
 }: CartridgeConnectScreenProps) {
@@ -117,6 +119,19 @@ export default function CartridgeConnectScreen({
                 }}
               >
                 {error}
+              </div>
+            ) : null}
+
+            {statusMessage ? (
+              <div
+                className="mt-4 rounded-[18px] border border-[#c3ddff]/28 bg-[rgba(18,38,77,0.28)] px-4 py-3 text-[#ebf4ff]"
+                style={{
+                  fontFamily: "Fredoka, sans-serif",
+                  fontSize: "0.84rem",
+                  lineHeight: 1.4,
+                }}
+              >
+                {statusMessage}
               </div>
             ) : null}
 

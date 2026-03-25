@@ -26,8 +26,10 @@ The objective is to keep the wallet experience:
   - local profile state
   - live Cartridge session
   - Dojo onchain registration
+- Never restore a wallet profile from local browser storage as if it were a live Cartridge session
 - The UI must never imply that a player is fully onchain if only local state exists
 - If a live session is inactive, say so explicitly
+- On mobile, expose a clear connection status if the Cartridge popup or controller takes time to initialize
 
 ## UI Rules
 - Show wallet status in the village wallet panel

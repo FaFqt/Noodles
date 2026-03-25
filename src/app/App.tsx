@@ -108,6 +108,7 @@ export default function App() {
     profileName: cartridgeProfileName,
     network: cartridgeNetwork,
     error: cartridgeError,
+    statusMessage: cartridgeStatusMessage,
     connectWallet,
     disconnectWallet,
     openProfile: openCartridgeProfile,
@@ -220,7 +221,7 @@ export default function App() {
       setDojoRegistrationConfirmed(false);
       const result = await connectWallet();
 
-      if (result?.wallet && result.profileName && result.address) {
+      if (result?.wallet && result.address) {
         setIsWalletSyncing(true);
         const normalizedAddress = result.address.toLowerCase();
         const cachedWalletMatches =
@@ -307,7 +308,9 @@ export default function App() {
         }
       }
 
-      setGameState('village');
+      setWalletSyncMessage(
+        'La session Cartridge est revenue incomplète. Le wallet n’a pas fourni d’adresse Starknet exploitable.'
+      );
     } catch {
       // The hook already exposes a user-facing error string.
     } finally {
@@ -775,6 +778,7 @@ export default function App() {
                 isSyncing={isWalletSyncing}
                 network={cartridgeNetwork}
                 error={cartridgeError}
+                statusMessage={cartridgeStatusMessage}
                 syncMessage={walletSyncMessage}
                 onConnect={handleWalletConnected}
               />

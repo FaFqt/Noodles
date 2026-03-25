@@ -176,6 +176,17 @@ export function Village({
   const [toast, setToast] = useState<string | null>(null);
   const [walletOpen, setWalletOpen] = useState(false);
   const isDojoSynced = Boolean(playerWallet?.dojoRegistered);
+  const walletSessionLabel = isDojoSynced
+    ? language === 'fr'
+      ? 'Synchronise onchain'
+      : 'Synced onchain'
+    : isWalletConnected
+      ? language === 'fr'
+        ? 'Wallet connecte, sync en attente'
+        : 'Wallet connected, sync pending'
+      : language === 'fr'
+        ? 'Profil local uniquement'
+        : 'Local profile only';
   const canOpenWalletProfile = Boolean(
     playerWallet && onOpenWalletProfile && (isWalletConnected || isDojoSynced)
   );
@@ -336,13 +347,7 @@ export function Village({
                             }`}
                             style={{ fontFamily: 'Fredoka, sans-serif' }}
                           >
-                            {isDojoSynced
-                              ? language === 'fr'
-                                ? 'Synchronise onchain'
-                                : 'Synced onchain'
-                              : language === 'fr'
-                                ? 'Profil local uniquement'
-                                : 'Local profile only'}
+                            {walletSessionLabel}
                           </div>
                         </div>
 
@@ -370,6 +375,10 @@ export function Village({
                               ? language === 'fr'
                                 ? 'Compte enregistre sur Dojo'
                                 : 'Player registered on Dojo'
+                              : isWalletConnected
+                                ? language === 'fr'
+                                  ? 'Wallet Cartridge connecte, synchronisation Dojo en attente'
+                                  : 'Cartridge wallet connected, Dojo sync pending'
                               : language === 'fr'
                                 ? 'Pas encore synchronise onchain'
                                 : 'Not synced onchain yet'}
