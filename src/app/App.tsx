@@ -78,6 +78,7 @@ function shuffleArray<T>(array: T[]): T[] {
 }
 
 const DOJO_REGISTERED_PLAYERS_STORAGE_KEY = 'dojoRegisteredPlayers';
+const PLAYER_WALLET_STORAGE_KEY = 'playerWallet';
 
 function readKnownDojoPlayers() {
   if (typeof window === 'undefined') return new Set<string>();
@@ -128,7 +129,7 @@ export default function App() {
   const [playerWallet, setPlayerWallet] = useState<PlayerWallet | null>(() => {
     if (typeof window === 'undefined') return null;
 
-    const rawValue = window.localStorage.getItem('playerWallet');
+    const rawValue = window.localStorage.getItem(PLAYER_WALLET_STORAGE_KEY);
     if (!rawValue) return null;
 
     try {
@@ -192,6 +193,7 @@ export default function App() {
   const [walletSyncMessage, setWalletSyncMessage] = useState<string | null>(null);
   const [dojoRegistrationConfirmed, setDojoRegistrationConfirmed] = useState(false);
   const [knownDojoPlayers, setKnownDojoPlayers] = useState<Set<string>>(readKnownDojoPlayers);
+  const [isWalletSyncing, setIsWalletSyncing] = useState(false);
 
   const allRecipeCards: RecipeSelectionItem[] = useMemo(
     () =>
@@ -220,7 +222,7 @@ export default function App() {
 
   const handleStartGame = () => {
     setWalletSyncMessage(null);
-    setGameState(playerWallet ? 'village' : 'cartridgeConnect');
+    setGameState('cartridgeConnect');
   };
 
   const handleWalletConnected = async () => {
@@ -229,6 +231,7 @@ export default function App() {
       const result = await connectWallet();
 
       if (result?.wallet && result.profileName && result.address) {
+        setIsWalletSyncing(true);
         const normalizedAddress = result.address.toLowerCase();
         const cachedWalletMatches =
           playerWallet?.address?.toLowerCase() === normalizedAddress &&
@@ -317,6 +320,8 @@ export default function App() {
       setGameState('village');
     } catch {
       // The hook already exposes a user-facing error string.
+    } finally {
+      setIsWalletSyncing(false);
     }
   };
 
@@ -344,10 +349,14 @@ export default function App() {
   };
 
   const handleWalletDisconnect = async () => {
-    await disconnectWallet();
     setDojoRegistrationConfirmed(false);
     setPlayerWallet(null);
+    setWalletSyncMessage(null);
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(PLAYER_WALLET_STORAGE_KEY);
+    }
     setGameState('cartridgeConnect');
+    await disconnectWallet();
   };
 
   const handleSelectBuilding = (building: string) => {
@@ -633,11 +642,11 @@ export default function App() {
     if (typeof window === 'undefined') return;
 
     if (playerWallet) {
-      window.localStorage.setItem('playerWallet', JSON.stringify(playerWallet));
+      window.localStorage.setItem(PLAYER_WALLET_STORAGE_KEY, JSON.stringify(playerWallet));
       return;
     }
 
-    window.localStorage.removeItem('playerWallet');
+    window.localStorage.removeItem(PLAYER_WALLET_STORAGE_KEY);
   }, [playerWallet]);
 
   useEffect(() => {
@@ -783,6 +792,7 @@ export default function App() {
             {gameState === 'cartridgeConnect' && (
               <CartridgeConnectScreen
                 isConnecting={isCartridgeConnecting}
+                isSyncing={isWalletSyncing}
                 network={cartridgeNetwork}
                 error={cartridgeError}
                 syncMessage={walletSyncMessage}

@@ -8,6 +8,7 @@ const DESIGN_HEIGHT = 780;
 
 interface CartridgeConnectScreenProps {
   isConnecting: boolean;
+  isSyncing?: boolean;
   network: "sepolia" | "mainnet";
   error?: string | null;
   syncMessage?: string | null;
@@ -16,6 +17,7 @@ interface CartridgeConnectScreenProps {
 
 export default function CartridgeConnectScreen({
   isConnecting,
+  isSyncing = false,
   network,
   error,
   syncMessage,
@@ -135,7 +137,7 @@ export default function CartridgeConnectScreen({
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => void onConnect()}
-              disabled={isConnecting}
+              disabled={isConnecting || isSyncing}
               className="mt-8 h-[60px] w-full rounded-[22px] bg-[linear-gradient(180deg,#ffcf67_0%,#ea8e30_100%)] text-[#fffdf8] shadow-[0_10px_22px_rgba(0,0,0,0.24)] disabled:opacity-75"
               style={{
                 fontFamily: "Fredoka, sans-serif",
@@ -145,7 +147,11 @@ export default function CartridgeConnectScreen({
               }}
               type="button"
             >
-              {isConnecting
+              {isSyncing
+                ? language === "fr"
+                  ? "Synchronisation..."
+                  : "Syncing..."
+                : isConnecting
                 ? language === "fr"
                   ? "Connexion..."
                   : "Connecting..."

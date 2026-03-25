@@ -99,6 +99,16 @@ export const useCartridgeWallet = () => {
   const disconnectWallet = useCallback(async () => {
     try {
       if (state.wallet) {
+        const controller =
+          typeof state.wallet.getController === 'function'
+            ? state.wallet.getController()
+            : null;
+
+        if (controller?.logout) {
+          await controller.logout();
+          return;
+        }
+
         await state.wallet.disconnect?.();
       }
 
