@@ -1,4 +1,5 @@
 import { CallData, Provider, shortString } from 'starknet';
+import type { SeedRewardCrop } from '../app/data/progression';
 
 type RegisterPlayerStatus =
   | 'registered'
@@ -9,6 +10,8 @@ type RegisterPlayerStatus =
 type SyncPlayerStatus = 'synced' | 'missing' | 'skipped' | 'failed';
 type SyncProgressStatus = 'synced' | 'skipped' | 'failed';
 type ResetProgressStatus = 'reset' | 'skipped' | 'failed';
+type ClaimUnlockStatus = 'claimed' | 'already_claimed' | 'skipped' | 'failed';
+type GrantSeedStatus = 'granted' | 'skipped' | 'failed';
 
 export interface RegisterPlayerResult {
   status: RegisterPlayerStatus;
@@ -34,6 +37,18 @@ export interface ResetProgressResult {
   txHash?: string | null;
 }
 
+export interface ClaimUnlockResult {
+  status: ClaimUnlockStatus;
+  message: string;
+  txHash?: string | null;
+}
+
+export interface GrantSeedResult {
+  status: GrantSeedStatus;
+  message: string;
+  txHash?: string | null;
+}
+
 export interface OnchainPlayerProgress {
   level: number;
   xp: number;
@@ -41,8 +56,32 @@ export interface OnchainPlayerProgress {
   updatedAt: number;
 }
 
+export interface OnchainPlayerInventory {
+  noodsBalance: number;
+  cornSeed: number;
+  dragonPepperSeed: number;
+  moonHerbSeed: number;
+  crystalSalt: number;
+}
+
+export interface OnchainPlayerUnlocks {
+  tipJarUnlocked: boolean;
+  greenhouseUnlocked: boolean;
+  marketUnlocked: boolean;
+}
+
+export interface OnchainPlayerSnapshot {
+  progress: OnchainPlayerProgress;
+  inventory: OnchainPlayerInventory | null;
+  unlocks: OnchainPlayerUnlocks | null;
+}
+
 const DOJO_PLAYER_SYSTEM_ADDRESS =
   import.meta.env.VITE_DOJO_PLAYER_SYSTEM_ADDRESS?.trim() ?? '';
+const DOJO_UNLOCK_SYSTEM_ADDRESS =
+  import.meta.env.VITE_DOJO_UNLOCK_SYSTEM_ADDRESS?.trim() ?? '';
+const DOJO_REWARD_SYSTEM_ADDRESS =
+  import.meta.env.VITE_DOJO_REWARD_SYSTEM_ADDRESS?.trim() ?? '';
 const DOJO_RPC_URL =
   import.meta.env.VITE_DOJO_RPC_URL?.trim() ??
   import.meta.env.VITE_STARKNET_RPC_URL?.trim() ??
@@ -78,6 +117,10 @@ function feltToNumber(value: string | null | undefined) {
   }
 }
 
+function feltToBoolean(value: string | null | undefined) {
+  return value === '0x1' || value === '1';
+}
+
 function isPlayerAlreadyRegisteredError(error: unknown) {
   const message =
     error instanceof Error ? error.message : typeof error === 'string' ? error : '';
@@ -94,6 +137,33 @@ function isPlayerMissingError(error: unknown) {
     error instanceof Error ? error.message : typeof error === 'string' ? error : '';
 
   return message.includes('player_missing') || message.includes('PLAYER_NOT_REGISTERED');
+}
+
+function isMissingEntrypointError(error: unknown) {
+  const message =
+    error instanceof Error ? error.message : typeof error === 'string' ? error : '';
+
+  return (
+    message.includes('Entry point') ||
+    message.includes('ENTRYPOINT_NOT_FOUND') ||
+    message.includes('Requested entry point was not found')
+  );
+}
+
+function isFeatureAlreadyUnlockedError(error: unknown) {
+  const message =
+    error instanceof Error ? error.message : typeof error === 'string' ? error : '';
+
+  return (
+    message.includes('FEATURE_ALREADY_UNLOCKED') ||
+    message.includes('already unlocked')
+  );
+}
+
+function getCropTypeValue(crop: SeedRewardCrop) {
+  if (crop === 'corn') return 1;
+  if (crop === 'dragonpepper') return 2;
+  return 3;
 }
 
 export async function registerPlayerOnDojo(params: {
@@ -246,6 +316,196 @@ export async function getPlayerProgressOnDojo(params: {
   } catch (error) {
     console.error('Failed to read Dojo player progress:', error);
     return null;
+  }
+}
+
+export async function getPlayerInventoryOnDojo(params: {
+  playerAddress: string;
+  network: 'sepolia' | 'mainnet';
+}): Promise<OnchainPlayerInventory | null> {
+  if (!DOJO_PLAYER_SYSTEM_ADDRESS || DOJO_PLAYER_SYSTEM_ADDRESS === '0x0') {
+    return null;
+  }
+
+  try {
+    const provider = createDojoProvider(params.network);
+    const result = await provider.callContract({
+      contractAddress: DOJO_PLAYER_SYSTEM_ADDRESS,
+      entrypoint: 'get_player_inventory',
+      calldata: CallData.compile([params.playerAddress]),
+    });
+
+    if (!Array.isArray(result) || result.length < 6) {
+      return null;
+    }
+
+    return {
+      noodsBalance: feltToNumber(result[1]),
+      cornSeed: feltToNumber(result[2]),
+      dragonPepperSeed: feltToNumber(result[3]),
+      moonHerbSeed: feltToNumber(result[4]),
+      crystalSalt: feltToNumber(result[5]),
+    };
+  } catch (error) {
+    if (isMissingEntrypointError(error)) {
+      return null;
+    }
+
+    console.error('Failed to read Dojo player inventory:', error);
+    return null;
+  }
+}
+
+export async function getPlayerUnlocksOnDojo(params: {
+  playerAddress: string;
+  network: 'sepolia' | 'mainnet';
+}): Promise<OnchainPlayerUnlocks | null> {
+  if (!DOJO_PLAYER_SYSTEM_ADDRESS || DOJO_PLAYER_SYSTEM_ADDRESS === '0x0') {
+    return null;
+  }
+
+  try {
+    const provider = createDojoProvider(params.network);
+    const result = await provider.callContract({
+      contractAddress: DOJO_PLAYER_SYSTEM_ADDRESS,
+      entrypoint: 'get_player_unlocks',
+      calldata: CallData.compile([params.playerAddress]),
+    });
+
+    if (!Array.isArray(result) || result.length < 4) {
+      return null;
+    }
+
+    return {
+      tipJarUnlocked: feltToBoolean(result[1]),
+      greenhouseUnlocked: feltToBoolean(result[2]),
+      marketUnlocked: feltToBoolean(result[3]),
+    };
+  } catch (error) {
+    if (isMissingEntrypointError(error)) {
+      return null;
+    }
+
+    console.error('Failed to read Dojo player unlocks:', error);
+    return null;
+  }
+}
+
+export async function getPlayerSnapshotOnDojo(params: {
+  playerAddress: string;
+  network: 'sepolia' | 'mainnet';
+}): Promise<OnchainPlayerSnapshot | null> {
+  const progress = await getPlayerProgressOnDojo(params);
+
+  if (!progress) {
+    return null;
+  }
+
+  const [inventory, unlocks] = await Promise.all([
+    getPlayerInventoryOnDojo(params),
+    getPlayerUnlocksOnDojo(params),
+  ]);
+
+  return {
+    progress,
+    inventory,
+    unlocks,
+  };
+}
+
+export async function claimFeatureUnlockOnDojo(params: {
+  wallet: any;
+  feature: 'tip_jar' | 'greenhouse';
+}): Promise<ClaimUnlockResult> {
+  if (!DOJO_UNLOCK_SYSTEM_ADDRESS || DOJO_UNLOCK_SYSTEM_ADDRESS === '0x0') {
+    return {
+      status: 'skipped',
+      message: 'Dojo unlock system address is not configured yet. Unlock sync was skipped.',
+    };
+  }
+
+  const entrypoint =
+    params.feature === 'tip_jar'
+      ? 'claim_tip_jar_unlock'
+      : 'claim_greenhouse_unlock';
+
+  try {
+    const tx = await params.wallet.execute([
+      {
+        contractAddress: DOJO_UNLOCK_SYSTEM_ADDRESS,
+        entrypoint,
+        calldata: [],
+      },
+    ]);
+
+    if (typeof tx?.wait === 'function') {
+      await tx.wait();
+    }
+
+    return {
+      status: 'claimed',
+      message: 'Feature unlock synced on Dojo.',
+      txHash: tx?.hash ?? tx?.transaction_hash ?? null,
+    };
+  } catch (error) {
+    if (isFeatureAlreadyUnlockedError(error)) {
+      return {
+        status: 'already_claimed',
+        message: 'Feature already unlocked on Dojo.',
+      };
+    }
+
+    console.error('Failed to sync Dojo feature unlock:', error);
+
+    return {
+      status: 'failed',
+      message:
+        error instanceof Error ? error.message : 'Dojo feature unlock sync failed.',
+    };
+  }
+}
+
+export async function grantSeedRewardOnDojo(params: {
+  wallet: any;
+  crop: SeedRewardCrop;
+  amount: number;
+}): Promise<GrantSeedResult> {
+  if (!DOJO_REWARD_SYSTEM_ADDRESS || DOJO_REWARD_SYSTEM_ADDRESS === '0x0') {
+    return {
+      status: 'skipped',
+      message: 'Dojo reward system address is not configured yet. Seed reward sync was skipped.',
+    };
+  }
+
+  try {
+    const tx = await params.wallet.execute([
+      {
+        contractAddress: DOJO_REWARD_SYSTEM_ADDRESS,
+        entrypoint: 'grant_seed',
+        calldata: CallData.compile({
+          crop_type: getCropTypeValue(params.crop),
+          amount: params.amount,
+        }),
+      },
+    ]);
+
+    if (typeof tx?.wait === 'function') {
+      await tx.wait();
+    }
+
+    return {
+      status: 'granted',
+      message: 'Seed reward synced on Dojo.',
+      txHash: tx?.hash ?? tx?.transaction_hash ?? null,
+    };
+  } catch (error) {
+    console.error('Failed to sync Dojo seed reward:', error);
+
+    return {
+      status: 'failed',
+      message:
+        error instanceof Error ? error.message : 'Dojo seed reward sync failed.',
+    };
   }
 }
 

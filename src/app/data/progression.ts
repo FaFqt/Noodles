@@ -2,6 +2,7 @@ import rewardTipJar from "../../assets/rewards/RewardTipJar.png";
 import rewardCorn from "../../assets/rewards/Corn.png";
 import seedDragonPepper from "../../assets/rewards/DragonPepper.png";
 import rewardMoonHerb from "../../assets/rewards/MoonHerb.png";
+import rewardToken from "../../assets/rewards/TokenRewards.png";
 
 export interface PlayerStats {
   name: string;
@@ -16,8 +17,10 @@ export interface PlayerStats {
 export type LevelRewardType =
   | "tipjar_unlock"
   | "seed"
-  | "recipe"
+  | "greenhouse_unlock"
   | "coins";
+
+export type SeedRewardCrop = "corn" | "dragonpepper" | "moonherb";
 
 export interface LevelRewardDefinition {
   id: string;
@@ -30,6 +33,8 @@ export interface LevelRewardDefinition {
   image: string;
   coinsBonus?: number;
   tipJarTokens?: number;
+  seedCrop?: SeedRewardCrop;
+  seedAmount?: number;
 }
 
 export function getXpToNextLevel(level: number) {
@@ -52,12 +57,12 @@ export const LEVEL_REWARDS: LevelRewardDefinition[] = [
     id: "level-3-tokens",
     level: 3,
     type: "coins",
-    titleFr: "10 tokens bonus",
-    titleEn: "10 bonus tokens",
-    descriptionFr: "Le chat pourboire reçoit 10 tokens pour le test.",
-    descriptionEn: "The Tip Jar receives 10 tokens for testing.",
-    image: rewardTipJar,
-    tipJarTokens: 10,
+    titleFr: "10 Noods bonus",
+    titleEn: "10 bonus Noods",
+    descriptionFr: "10 Noods sont ajoutes directement a ton solde.",
+    descriptionEn: "10 Noods are added directly to your balance.",
+    image: rewardToken,
+    coinsBonus: 10,
   },
   {
     id: "level-4-tokens",
@@ -74,20 +79,22 @@ export const LEVEL_REWARDS: LevelRewardDefinition[] = [
     id: "level-5-corn-seed",
     level: 5,
     type: "seed",
-    titleFr: "Graines de maïs débloquées",
-    titleEn: "Corn seeds unlocked",
-    descriptionFr: "Une nouvelle graine de maïs est disponible pour le test.",
-    descriptionEn: "A new corn seed is now available for testing.",
+    titleFr: "1 graine de maïs offerte",
+    titleEn: "1 corn seed granted",
+    descriptionFr: "1 graine de maïs est ajoutee a ton inventaire.",
+    descriptionEn: "1 corn seed is added to your inventory.",
     image: rewardCorn,
+    seedCrop: "corn",
+    seedAmount: 1,
   },
   {
     id: "level-6-greenhouse",
     level: 6,
-    type: "recipe",
+    type: "greenhouse_unlock",
     titleFr: "Serre débloquée",
     titleEn: "Greenhouse unlocked",
-    descriptionFr: "La serre est marquée comme débloquée pour le test.",
-    descriptionEn: "The greenhouse is marked as unlocked for testing.",
+    descriptionFr: "La serre devient accessible dans le village.",
+    descriptionEn: "The greenhouse becomes accessible in the village.",
     image: rewardMoonHerb,
   },
 ];

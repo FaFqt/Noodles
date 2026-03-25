@@ -21,7 +21,10 @@ import type { Order } from './types/order';
 import type { PlayerWallet } from './types/playerWallet';
 import {
   checkPlayerRegistrationOnDojo,
-  getPlayerProgressOnDojo,
+  claimFeatureUnlockOnDojo,
+  grantSeedRewardOnDojo,
+  getPlayerSnapshotOnDojo,
+  type OnchainPlayerSnapshot,
   registerPlayerOnDojo,
   resetPlayerProgressOnDojo,
   syncPlayerOnDojo,
@@ -31,6 +34,7 @@ import {
   applyXpGain,
   getXpToNextLevel,
   type LevelRewardDefinition,
+  type SeedRewardCrop,
 } from './data/progression';
 import { RECIPES, getRecipeById, SERVICES_PER_DAY } from './data/recipes';
 
@@ -81,6 +85,8 @@ function shuffleArray<T>(array: T[]): T[] {
 }
 
 const DOJO_REGISTERED_PLAYERS_STORAGE_KEY = 'dojoRegisteredPlayers';
+const WALLET_REWARD_STATE_STORAGE_KEY_PREFIX = 'walletRewardState';
+const WALLET_PROGRESS_STATE_STORAGE_KEY_PREFIX = 'walletProgressState';
 const DEV_PROGRESS_RESET_ENABLED =
   import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEV_RESET === 'true';
 const INITIAL_PLAYER_STATS = {
@@ -91,6 +97,12 @@ const INITIAL_PLAYER_STATS = {
   stars: 4,
   maxStars: 15,
   coins: 10,
+};
+const INITIAL_PLAYER_INVENTORY = {
+  cornSeed: 0,
+  dragonPepperSeed: 0,
+  moonHerbSeed: 0,
+  crystalSalt: 0,
 };
 
 function readKnownDojoPlayers() {
@@ -109,6 +121,154 @@ function readKnownDojoPlayers() {
   } catch {
     return new Set<string>();
   }
+}
+
+interface WalletRewardState {
+  claimedLevelRewardIds: string[];
+  restaurantRewardFeaturesUnlocked: boolean;
+  greenhouseUnlocked: boolean;
+  tipJarTokensAvailable: number;
+  tipJarCollected: boolean;
+  inventory: typeof INITIAL_PLAYER_INVENTORY;
+}
+
+interface WalletProgressState {
+  playerStats: typeof INITIAL_PLAYER_STATS;
+  hasPendingProgressSync: boolean;
+  updatedAt: number;
+}
+
+function getWalletRewardStateStorageKey(walletAddress: string) {
+  return `${WALLET_REWARD_STATE_STORAGE_KEY_PREFIX}:${walletAddress.toLowerCase()}`;
+}
+
+function readWalletRewardState(walletAddress: string): WalletRewardState | null {
+  if (typeof window === 'undefined') return null;
+
+  const rawValue = window.localStorage.getItem(
+    getWalletRewardStateStorageKey(walletAddress)
+  );
+
+  if (!rawValue) return null;
+
+  try {
+    const parsed = JSON.parse(rawValue) as Partial<WalletRewardState>;
+
+    return {
+      claimedLevelRewardIds: Array.isArray(parsed.claimedLevelRewardIds)
+        ? parsed.claimedLevelRewardIds.filter(
+            (value): value is string => typeof value === 'string' && value.length > 0
+          )
+        : [],
+      restaurantRewardFeaturesUnlocked: Boolean(
+        parsed.restaurantRewardFeaturesUnlocked
+      ),
+      greenhouseUnlocked: Boolean(parsed.greenhouseUnlocked),
+      tipJarTokensAvailable: Number.isFinite(parsed.tipJarTokensAvailable)
+        ? Math.max(0, Number(parsed.tipJarTokensAvailable))
+        : 0,
+      tipJarCollected: Boolean(parsed.tipJarCollected),
+      inventory: {
+        cornSeed: Number.isFinite(parsed.inventory?.cornSeed)
+          ? Math.max(0, Number(parsed.inventory?.cornSeed))
+          : 0,
+        dragonPepperSeed: Number.isFinite(parsed.inventory?.dragonPepperSeed)
+          ? Math.max(0, Number(parsed.inventory?.dragonPepperSeed))
+          : 0,
+        moonHerbSeed: Number.isFinite(parsed.inventory?.moonHerbSeed)
+          ? Math.max(0, Number(parsed.inventory?.moonHerbSeed))
+          : 0,
+        crystalSalt: Number.isFinite(parsed.inventory?.crystalSalt)
+          ? Math.max(0, Number(parsed.inventory?.crystalSalt))
+          : 0,
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+function getWalletProgressStateStorageKey(walletAddress: string) {
+  return `${WALLET_PROGRESS_STATE_STORAGE_KEY_PREFIX}:${walletAddress.toLowerCase()}`;
+}
+
+function readWalletProgressState(walletAddress: string): WalletProgressState | null {
+  if (typeof window === 'undefined') return null;
+
+  const rawValue = window.localStorage.getItem(
+    getWalletProgressStateStorageKey(walletAddress)
+  );
+
+  if (!rawValue) return null;
+
+  try {
+    const parsed = JSON.parse(rawValue) as Partial<WalletProgressState>;
+
+    if (!parsed.playerStats) {
+      return null;
+    }
+
+    return {
+      playerStats: {
+        name:
+          typeof parsed.playerStats.name === 'string'
+            ? parsed.playerStats.name
+            : INITIAL_PLAYER_STATS.name,
+        level: Number.isFinite(parsed.playerStats.level)
+          ? Math.max(1, Number(parsed.playerStats.level))
+          : INITIAL_PLAYER_STATS.level,
+        xp: Number.isFinite(parsed.playerStats.xp)
+          ? Math.max(0, Number(parsed.playerStats.xp))
+          : INITIAL_PLAYER_STATS.xp,
+        xpToNext: Number.isFinite(parsed.playerStats.xpToNext)
+          ? Math.max(1, Number(parsed.playerStats.xpToNext))
+          : INITIAL_PLAYER_STATS.xpToNext,
+        stars: Number.isFinite(parsed.playerStats.stars)
+          ? Math.max(0, Number(parsed.playerStats.stars))
+          : INITIAL_PLAYER_STATS.stars,
+        maxStars: Number.isFinite(parsed.playerStats.maxStars)
+          ? Math.max(1, Number(parsed.playerStats.maxStars))
+          : INITIAL_PLAYER_STATS.maxStars,
+        coins: Number.isFinite(parsed.playerStats.coins)
+          ? Math.max(0, Number(parsed.playerStats.coins))
+          : INITIAL_PLAYER_STATS.coins,
+      },
+      hasPendingProgressSync: Boolean(parsed.hasPendingProgressSync),
+      updatedAt: Number.isFinite(parsed.updatedAt) ? Number(parsed.updatedAt) : 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function getDojoHydrationSummary(snapshot: OnchainPlayerSnapshot | null | undefined) {
+  if (!snapshot) return null;
+
+  return snapshot.inventory
+    ? 'progression et solde Noods recuperes depuis Dojo'
+    : 'progression recuperee depuis Dojo';
+}
+
+function incrementInventoryValue(
+  inventory: typeof INITIAL_PLAYER_INVENTORY,
+  crop: SeedRewardCrop,
+  amount: number
+) {
+  if (crop === 'corn') {
+    return { ...inventory, cornSeed: inventory.cornSeed + amount };
+  }
+
+  if (crop === 'dragonpepper') {
+    return {
+      ...inventory,
+      dragonPepperSeed: inventory.dragonPepperSeed + amount,
+    };
+  }
+
+  return {
+    ...inventory,
+    moonHerbSeed: inventory.moonHerbSeed + amount,
+  };
 }
 
 export default function App() {
@@ -182,6 +342,8 @@ export default function App() {
   const [tipJarCollected, setTipJarCollected] = useState(false);
   const [restaurantRewardFeaturesUnlocked, setRestaurantRewardFeaturesUnlocked] =
     useState(false);
+  const [greenhouseUnlocked, setGreenhouseUnlocked] = useState(false);
+  const [playerInventory, setPlayerInventory] = useState(INITIAL_PLAYER_INVENTORY);
   const [claimedLevelRewardIds, setClaimedLevelRewardIds] = useState<string[]>([]);
   const [pendingLevelRewards, setPendingLevelRewards] = useState<
     { reward: LevelRewardDefinition; level: number }[]
@@ -191,6 +353,7 @@ export default function App() {
   const [knownDojoPlayers, setKnownDojoPlayers] = useState<Set<string>>(readKnownDojoPlayers);
   const [isWalletSyncing, setIsWalletSyncing] = useState(false);
   const [hasHydratedOnchainProgress, setHasHydratedOnchainProgress] = useState(false);
+  const [hasPendingProgressSync, setHasPendingProgressSync] = useState(false);
 
   const allRecipeCards: RecipeSelectionItem[] = useMemo(
     () =>
@@ -216,6 +379,120 @@ export default function App() {
     ).slice(0, 4)
   );
   const displayPlayerName = playerWallet?.profileName ?? playerStats.name;
+  const isTipJarUnlocked =
+    restaurantRewardFeaturesUnlocked ||
+    playerStats.level >= 2 ||
+    claimedLevelRewardIds.includes('level-2-tipjar');
+
+  const restoreWalletRewardState = useCallback(
+    (walletAddress: string, onchainSnapshot?: OnchainPlayerSnapshot | null) => {
+      const storedState = readWalletRewardState(walletAddress);
+      const inferredTipJarUnlocked =
+        Boolean(storedState?.restaurantRewardFeaturesUnlocked) ||
+        Boolean(onchainSnapshot?.unlocks?.tipJarUnlocked) ||
+        (onchainSnapshot?.progress.level ?? playerStats.level) >= 2;
+      const inferredGreenhouseUnlocked =
+        Boolean(storedState?.greenhouseUnlocked) ||
+        Boolean(onchainSnapshot?.unlocks?.greenhouseUnlocked);
+      const nextInventory = {
+        cornSeed: Math.max(
+          storedState?.inventory.cornSeed ?? 0,
+          onchainSnapshot?.inventory?.cornSeed ?? 0
+        ),
+        dragonPepperSeed: Math.max(
+          storedState?.inventory.dragonPepperSeed ?? 0,
+          onchainSnapshot?.inventory?.dragonPepperSeed ?? 0
+        ),
+        moonHerbSeed: Math.max(
+          storedState?.inventory.moonHerbSeed ?? 0,
+          onchainSnapshot?.inventory?.moonHerbSeed ?? 0
+        ),
+        crystalSalt: Math.max(
+          storedState?.inventory.crystalSalt ?? 0,
+          onchainSnapshot?.inventory?.crystalSalt ?? 0
+        ),
+      };
+
+      setClaimedLevelRewardIds(storedState?.claimedLevelRewardIds ?? []);
+      setRestaurantRewardFeaturesUnlocked(inferredTipJarUnlocked);
+      setGreenhouseUnlocked(inferredGreenhouseUnlocked);
+      setTipJarTokensAvailable(storedState?.tipJarTokensAvailable ?? 0);
+      setTipJarCollected(storedState?.tipJarCollected ?? false);
+      setPlayerInventory(nextInventory);
+      setPendingLevelRewards([]);
+    },
+    [playerStats.level]
+  );
+
+  const restoreWalletProgressState = useCallback(
+    (walletAddress: string, onchainSnapshot?: OnchainPlayerSnapshot | null) => {
+      const storedState = readWalletProgressState(walletAddress);
+
+      if (!storedState) {
+        setHasPendingProgressSync(false);
+        return;
+      }
+
+      const onchainUpdatedAtMs = (onchainSnapshot?.progress.updatedAt ?? 0) * 1000;
+      const shouldUseLocalProgress =
+        storedState.hasPendingProgressSync || storedState.updatedAt > onchainUpdatedAtMs;
+
+      if (shouldUseLocalProgress) {
+        setPlayerStats(storedState.playerStats);
+      }
+
+      setHasPendingProgressSync(storedState.hasPendingProgressSync);
+    },
+    []
+  );
+
+  const queueProgressCheckpointSync = useCallback(() => {
+    setHasPendingProgressSync(true);
+  }, []);
+
+  const flushProgressCheckpointSync = useCallback(
+    async (checkpointLabel: string) => {
+      if (
+        !hasPendingProgressSync ||
+        !cartridgeWallet ||
+        !isCartridgeConnected ||
+        !playerWallet?.dojoRegistered ||
+        !hasHydratedOnchainProgress
+      ) {
+        return;
+      }
+
+      const result = await syncPlayerProgressOnDojo({
+        wallet: cartridgeWallet,
+        level: playerStats.level,
+        xp: playerStats.xp,
+        xpToNext: playerStats.xpToNext,
+        noodsBalance: playerStats.coins,
+      });
+
+      if (result.status === 'failed') {
+        setWalletSyncMessage(
+          `La sync onchain du checkpoint ${checkpointLabel} a echoue: ${result.message}`
+        );
+        return;
+      }
+
+      if (result.status === 'synced') {
+        setHasPendingProgressSync(false);
+      }
+    },
+    [
+      cartridgeWallet,
+      hasHydratedOnchainProgress,
+      hasPendingProgressSync,
+      isCartridgeConnected,
+      playerStats.coins,
+      playerStats.level,
+      playerStats.xp,
+      playerStats.xpToNext,
+      playerWallet?.dojoRegistered,
+    ]
+  );
 
   const handleStartGame = () => {
     setWalletSyncMessage(null);
@@ -224,24 +501,26 @@ export default function App() {
 
   const hydrateProgressFromDojo = useCallback(
     async (params: { playerAddress: string; network: 'sepolia' | 'mainnet' }) => {
-      const onchainProgress = await getPlayerProgressOnDojo(params);
+      const onchainSnapshot = await getPlayerSnapshotOnDojo(params);
 
-      if (!onchainProgress) {
+      if (!onchainSnapshot) {
         setHasHydratedOnchainProgress(false);
         setWalletSyncMessage(
           'Le wallet est connecte, mais la progression onchain n’a pas pu etre relue. La sync automatique reste en pause pour eviter tout ecrasement.'
         );
-        return false;
+        return null;
       }
 
       setPlayerStats((prev) => ({
         ...prev,
-        level: onchainProgress.level || INITIAL_PLAYER_STATS.level,
-        xp: onchainProgress.xp,
-        xpToNext: onchainProgress.xpToNext || INITIAL_PLAYER_STATS.xpToNext,
+        level: onchainSnapshot.progress.level || INITIAL_PLAYER_STATS.level,
+        xp: onchainSnapshot.progress.xp,
+        xpToNext:
+          onchainSnapshot.progress.xpToNext || INITIAL_PLAYER_STATS.xpToNext,
+        coins: onchainSnapshot.inventory?.noodsBalance ?? prev.coins,
       }));
       setHasHydratedOnchainProgress(true);
-      return true;
+      return onchainSnapshot;
     },
     []
   );
@@ -252,11 +531,20 @@ export default function App() {
       setPlayerWallet(null);
       setDojoRegistrationConfirmed(false);
       setHasHydratedOnchainProgress(false);
+      setTipJarTokensAvailable(0);
+      setTipJarCollected(false);
+      setRestaurantRewardFeaturesUnlocked(false);
+      setGreenhouseUnlocked(false);
+      setPlayerInventory(INITIAL_PLAYER_INVENTORY);
+      setClaimedLevelRewardIds([]);
+      setPendingLevelRewards([]);
+      setHasPendingProgressSync(false);
       const result = await connectWallet();
 
       if (result?.wallet && result.address) {
         setIsWalletSyncing(true);
         const normalizedAddress = result.address.toLowerCase();
+        restoreWalletRewardState(result.address, null);
         const cachedWalletMatches =
           playerWallet?.address?.toLowerCase() === normalizedAddress &&
           playerWallet?.dojoRegistered;
@@ -276,12 +564,15 @@ export default function App() {
             next.add(normalizedAddress);
             return next;
           });
-          const didHydrateProgress = await hydrateProgressFromDojo({
+          const onchainSnapshot = await hydrateProgressFromDojo({
             playerAddress: result.address,
             network: result.network,
           });
-          if (didHydrateProgress) {
-            setWalletSyncMessage('Compte joueur et progression recuperes depuis Dojo.');
+          restoreWalletProgressState(result.address, onchainSnapshot);
+          restoreWalletRewardState(result.address, onchainSnapshot);
+          const hydrationSummary = getDojoHydrationSummary(onchainSnapshot);
+          if (hydrationSummary) {
+            setWalletSyncMessage(`Compte joueur et ${hydrationSummary}.`);
           }
           setGameState('village');
           return;
@@ -297,14 +588,15 @@ export default function App() {
               next.add(normalizedAddress);
               return next;
             });
-            const didHydrateProgress = await hydrateProgressFromDojo({
+            const onchainSnapshot = await hydrateProgressFromDojo({
               playerAddress: result.address,
               network: result.network,
             });
-            if (didHydrateProgress) {
-              setWalletSyncMessage(
-                'Etat onchain verifie et progression recuperee depuis Dojo.'
-              );
+            restoreWalletProgressState(result.address, onchainSnapshot);
+            restoreWalletRewardState(result.address, onchainSnapshot);
+            const hydrationSummary = getDojoHydrationSummary(onchainSnapshot);
+            if (hydrationSummary) {
+              setWalletSyncMessage(`Etat onchain verifie et ${hydrationSummary}.`);
             }
             setGameState('village');
             return;
@@ -335,17 +627,24 @@ export default function App() {
             next.add(normalizedAddress);
             return next;
           });
-          const didHydrateProgress = await hydrateProgressFromDojo({
+          const onchainSnapshot = await hydrateProgressFromDojo({
             playerAddress: result.address,
             network: result.network,
           });
+          restoreWalletProgressState(result.address, onchainSnapshot);
+          restoreWalletRewardState(result.address, onchainSnapshot);
+          const hydrationSummary = getDojoHydrationSummary(onchainSnapshot);
           setWalletSyncMessage(
             dojoRegistration.status === 'registered'
-              ? didHydrateProgress
-                ? 'Compte joueur enregistre et progression initialisee sur Dojo.'
+              ? onchainSnapshot
+                ? hydrationSummary
+                  ? `Compte joueur enregistre et ${hydrationSummary}.`
+                  : 'Compte joueur enregistre et progression initialisee depuis Dojo.'
                 : 'Compte joueur enregistre sur Dojo, mais la lecture de progression a echoue.'
-              : didHydrateProgress
-                ? 'Compte joueur deja present et progression recuperee depuis Dojo.'
+              : onchainSnapshot
+                ? hydrationSummary
+                  ? `Compte joueur deja present et ${hydrationSummary}.`
+                  : 'Compte joueur deja present et progression recuperee depuis Dojo.'
                 : 'Compte joueur deja present sur Dojo, mais la lecture de progression a echoue.'
           );
         } else if (dojoRegistration.status === 'skipped') {
@@ -403,6 +702,14 @@ export default function App() {
     setDojoRegistrationConfirmed(false);
     setHasHydratedOnchainProgress(false);
     setPlayerWallet(null);
+    setTipJarTokensAvailable(0);
+    setTipJarCollected(false);
+    setRestaurantRewardFeaturesUnlocked(false);
+    setGreenhouseUnlocked(false);
+    setPlayerInventory(INITIAL_PLAYER_INVENTORY);
+    setClaimedLevelRewardIds([]);
+    setPendingLevelRewards([]);
+    setHasPendingProgressSync(false);
     setWalletSyncMessage(null);
     setGameState('cartridgeConnect');
     await disconnectWallet();
@@ -439,8 +746,11 @@ export default function App() {
     setTipJarTokensAvailable(0);
     setTipJarCollected(false);
     setRestaurantRewardFeaturesUnlocked(false);
+    setGreenhouseUnlocked(false);
+    setPlayerInventory(INITIAL_PLAYER_INVENTORY);
     setClaimedLevelRewardIds([]);
     setPendingLevelRewards([]);
+    setHasPendingProgressSync(false);
     setHasHydratedOnchainProgress(true);
     setWalletSyncMessage(
       resetResult.status === 'reset'
@@ -624,6 +934,7 @@ export default function App() {
     setDayXpEarned(updatedDayXp);
     setDayServiceResults(updatedDayResults);
     setPendingLevelRewards(updatedPendingRewards);
+    queueProgressCheckpointSync();
 
     const nextCompletedServices = completedServices + 1;
 
@@ -644,7 +955,7 @@ export default function App() {
     setGameState('recipeSelection');
   };
 
-  const handleRewardScreenContinue = () => {
+  const handleRewardScreenContinue = async () => {
     const currentRewardEntry = pendingLevelRewards[0];
     let remainingRewards = pendingLevelRewards;
 
@@ -658,6 +969,17 @@ export default function App() {
       if (reward.type === 'tipjar_unlock') {
         setRestaurantRewardFeaturesUnlocked(true);
         setTipJarCollected(false);
+
+        if (cartridgeWallet && playerWallet?.dojoRegistered) {
+          const result = await claimFeatureUnlockOnDojo({
+            wallet: cartridgeWallet,
+            feature: 'tip_jar',
+          });
+
+          if (result.status === 'failed') {
+            setWalletSyncMessage(`La sync onchain du Tip Jar a echoue: ${result.message}`);
+          }
+        }
       }
 
       if (reward.tipJarTokens) {
@@ -670,6 +992,44 @@ export default function App() {
           ...prev,
           coins: prev.coins + reward.coinsBonus,
         }));
+        queueProgressCheckpointSync();
+      }
+
+      if (reward.type === 'seed' && reward.seedCrop && reward.seedAmount) {
+        setPlayerInventory((prev) =>
+          incrementInventoryValue(prev, reward.seedCrop!, reward.seedAmount!)
+        );
+
+        if (cartridgeWallet && playerWallet?.dojoRegistered) {
+          const result = await grantSeedRewardOnDojo({
+            wallet: cartridgeWallet,
+            crop: reward.seedCrop,
+            amount: reward.seedAmount,
+          });
+
+          if (result.status === 'failed') {
+            setWalletSyncMessage(
+              `La sync onchain de la graine ${reward.seedCrop} a echoue: ${result.message}`
+            );
+          }
+        }
+      }
+
+      if (reward.type === 'greenhouse_unlock') {
+        setGreenhouseUnlocked(true);
+
+        if (cartridgeWallet && playerWallet?.dojoRegistered) {
+          const result = await claimFeatureUnlockOnDojo({
+            wallet: cartridgeWallet,
+            feature: 'greenhouse',
+          });
+
+          if (result.status === 'failed') {
+            setWalletSyncMessage(
+              `La sync onchain du unlock greenhouse a echoue: ${result.message}`
+            );
+          }
+        }
       }
 
       remainingRewards = pendingLevelRewards.slice(1);
@@ -766,46 +1126,17 @@ export default function App() {
   }, [playerWallet?.address, playerWallet?.network]);
 
   useEffect(() => {
-    if (
-      !cartridgeWallet ||
-      !isCartridgeConnected ||
-      !playerWallet?.dojoRegistered ||
-      !hasHydratedOnchainProgress
-    ) {
+    if (!hasPendingProgressSync) return;
+
+    if (gameState === 'restaurant') {
+      void flushProgressCheckpointSync('fin_de_journee');
       return;
     }
 
-    let isCancelled = false;
-
-    const syncProgress = async () => {
-      const result = await syncPlayerProgressOnDojo({
-        wallet: cartridgeWallet,
-        level: playerStats.level,
-        xp: playerStats.xp,
-        xpToNext: playerStats.xpToNext,
-        noodsBalance: playerStats.coins,
-      });
-
-      if (isCancelled || result.status !== 'failed') return;
-
-      setWalletSyncMessage(`La sync onchain de la progression a echoue: ${result.message}`);
-    };
-
-    void syncProgress();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [
-    cartridgeWallet,
-    isCartridgeConnected,
-    playerStats.coins,
-    playerStats.level,
-    playerStats.xp,
-    playerStats.xpToNext,
-    hasHydratedOnchainProgress,
-    playerWallet?.dojoRegistered,
-  ]);
+    if (gameState === 'village') {
+      void flushProgressCheckpointSync('retour_village');
+    }
+  }, [flushProgressCheckpointSync, gameState, hasPendingProgressSync]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -815,6 +1146,47 @@ export default function App() {
       JSON.stringify(Array.from(knownDojoPlayers))
     );
   }, [knownDojoPlayers]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !playerWallet?.address) return;
+
+    const nextState: WalletRewardState = {
+      claimedLevelRewardIds,
+      restaurantRewardFeaturesUnlocked: isTipJarUnlocked,
+      greenhouseUnlocked,
+      tipJarTokensAvailable,
+      tipJarCollected,
+      inventory: playerInventory,
+    };
+
+    window.localStorage.setItem(
+      getWalletRewardStateStorageKey(playerWallet.address),
+      JSON.stringify(nextState)
+    );
+  }, [
+    claimedLevelRewardIds,
+    greenhouseUnlocked,
+    isTipJarUnlocked,
+    playerInventory,
+    playerWallet?.address,
+    tipJarCollected,
+    tipJarTokensAvailable,
+  ]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !playerWallet?.address) return;
+
+    const nextState: WalletProgressState = {
+      playerStats,
+      hasPendingProgressSync,
+      updatedAt: Date.now(),
+    };
+
+    window.localStorage.setItem(
+      getWalletProgressStateStorageKey(playerWallet.address),
+      JSON.stringify(nextState)
+    );
+  }, [hasPendingProgressSync, playerStats, playerWallet?.address]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -855,6 +1227,18 @@ export default function App() {
     return () => window.clearTimeout(timeout);
   }, [restaurantServicePausedUntil]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handlePageHide = () => {
+      if (!hasPendingProgressSync) return;
+      void flushProgressCheckpointSync('fermeture_app');
+    };
+
+    window.addEventListener('pagehide', handlePageHide);
+    return () => window.removeEventListener('pagehide', handlePageHide);
+  }, [flushProgressCheckpointSync, hasPendingProgressSync]);
+
   const handleCollectTipJar = () => {
     if (tipJarTokensAvailable <= 0 || tipJarCollected) return;
 
@@ -864,6 +1248,7 @@ export default function App() {
     }));
     setTipJarCollected(true);
     setTipJarTokensAvailable(0);
+    queueProgressCheckpointSync();
   };
 
   return (
@@ -924,6 +1309,7 @@ export default function App() {
             {gameState === 'village' && (
               <Village
                 onSelectBuilding={handleSelectBuilding}
+                greenhouseUnlocked={greenhouseUnlocked}
                 playerWallet={playerWallet}
                 isWalletConnected={isCartridgeConnected}
                 onOpenWalletProfile={handleOpenWalletProfile}
@@ -953,7 +1339,7 @@ export default function App() {
                   xp={playerStats.xp}
                   xpToNext={playerStats.xpToNext}
                   serviceSlotsVisible={completedRestaurantDays > 0}
-                  rewardFeaturesUnlocked={restaurantRewardFeaturesUnlocked}
+                  rewardFeaturesUnlocked={isTipJarUnlocked}
                   servicePausedUntil={restaurantServicePausedUntil}
                   tipJarTokensAvailable={tipJarTokensAvailable}
                   tipJarCollected={tipJarCollected}

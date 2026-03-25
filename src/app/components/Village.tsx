@@ -11,6 +11,7 @@ const DESIGN_HEIGHT = 780;
 
 interface VillageProps {
   onSelectBuilding: (building: string) => void;
+  greenhouseUnlocked?: boolean;
   playerWallet?: PlayerWallet | null;
   isWalletConnected?: boolean;
   onOpenWalletProfile?: () => Promise<boolean> | boolean;
@@ -167,6 +168,7 @@ function shortenAddress(address: string) {
 
 export function Village({
   onSelectBuilding,
+  greenhouseUnlocked = false,
   playerWallet,
   isWalletConnected = false,
   onOpenWalletProfile,
@@ -193,6 +195,11 @@ export function Village({
         : 'Local profile only';
   const canOpenWalletProfile = Boolean(
     playerWallet && onOpenWalletProfile && (isWalletConnected || isDojoSynced)
+  );
+  const visibleBuildings = BUILDINGS.map((building) =>
+    building.id === 'greenhouse'
+      ? { ...building, locked: !greenhouseUnlocked }
+      : building
   );
 
   const showToast = useCallback((msg: string) => {
@@ -544,13 +551,13 @@ export function Village({
               )}
             </AnimatePresence>
 
-            {BUILDINGS.map((b) => (
+            {visibleBuildings.map((b) => (
               <motion.button
                 key={b.id}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{
-                  delay: 0.1 * BUILDINGS.indexOf(b),
+                  delay: 0.1 * visibleBuildings.findIndex((building) => building.id === b.id),
                   type: 'spring',
                   stiffness: 220,
                   damping: 18
