@@ -3,7 +3,9 @@ import { constants } from 'starknet';
 import {
   cartridgeController,
   cartridgeDefaultNetwork,
+  ensureCartridgeSessionPolicies,
   getCartridgeNetworkFromChainId,
+  resetCartridgeSessionPoliciesState,
 } from '../services/cartridgeController';
 
 interface CartridgeWalletState {
@@ -202,7 +204,21 @@ export const useCartridgeWallet = () => {
         statusMessage: 'Session ouverte. Lecture du profil et des droits de session...',
       }));
 
-      return hydrateWalletState(wallet);
+      const hydratedWallet = await hydrateWalletState(wallet);
+
+      setState((prev) => ({
+        ...prev,
+        statusMessage: 'Autorisation de la session du jeu...',
+      }));
+
+      await ensureCartridgeSessionPolicies();
+
+      setState((prev) => ({
+        ...prev,
+        statusMessage: null,
+      }));
+
+      return hydratedWallet;
     } catch (error) {
       if (typeof window !== 'undefined' && slowOpenReminder) {
         window.clearTimeout(slowOpenReminder);
@@ -230,6 +246,7 @@ export const useCartridgeWallet = () => {
 
   const disconnectWallet = useCallback(async () => {
     try {
+      resetCartridgeSessionPoliciesState();
       await cartridgeController.disconnect();
     } catch (error) {
       console.error('Failed to disconnect Cartridge wallet:', error);

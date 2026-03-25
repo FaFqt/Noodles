@@ -20,6 +20,7 @@ import {
   type ConnectedCartridgeWallet,
   useCartridgeWallet,
 } from '../hooks/useCartridgeWallet';
+import { ensureCartridgeSessionPolicies } from '../services/cartridgeController';
 import type { Order } from './types/order';
 import type { PlayerWallet } from './types/playerWallet';
 import {
@@ -55,6 +56,7 @@ import ramenVeggie from '../../src/assets/recipes/ramen-veggie.png';
 
 type GameState =
   | 'splash'
+  | 'cartridgeLoading'
   | 'cartridgeConnect'
   | 'village'
   | 'restaurant'
@@ -358,6 +360,7 @@ export default function App() {
   const [hasHydratedOnchainProgress, setHasHydratedOnchainProgress] = useState(false);
   const [hasPendingProgressSync, setHasPendingProgressSync] = useState(false);
   const bootstrappedWalletAddressRef = useRef<string | null>(null);
+  const hasStartedWalletLoadingRef = useRef(false);
 
   const allRecipeCards: RecipeSelectionItem[] = useMemo(
     () =>
@@ -515,7 +518,8 @@ export default function App() {
 
   const handleStartGame = () => {
     setWalletSyncMessage(null);
-    setGameState('cartridgeConnect');
+    hasStartedWalletLoadingRef.current = false;
+    setGameState('cartridgeLoading');
   };
 
   const hydrateProgressFromDojo = useCallback(
@@ -549,6 +553,8 @@ export default function App() {
       setIsWalletSyncing(true);
 
       try {
+        await ensureCartridgeSessionPolicies();
+
         const normalizedAddress = result.address.toLowerCase();
         restoreWalletRewardState(result.address, null);
         const cachedWalletMatches =
@@ -668,6 +674,13 @@ export default function App() {
         }
 
         setGameState('village');
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Session Cartridge indisponible.';
+        setDojoRegistrationConfirmed(false);
+        setWalletSyncMessage(
+          `La session Cartridge du jeu n’a pas pu etre preparee: ${message}`
+        );
+        setGameState('cartridgeConnect');
       } finally {
         setIsWalletSyncing(false);
       }
@@ -697,6 +710,9 @@ export default function App() {
         'La session Cartridge est revenue incomplète. Le wallet n’a pas fourni d’adresse Starknet exploitable.'
       );
     } catch {
+      if (gameState === 'cartridgeLoading') {
+        setGameState('cartridgeConnect');
+      }
       // The hook already exposes a user-facing error string.
     }
   };
@@ -726,6 +742,7 @@ export default function App() {
 
   const handleWalletDisconnect = async () => {
     bootstrappedWalletAddressRef.current = null;
+    hasStartedWalletLoadingRef.current = false;
     resetWalletSessionState();
     setWalletSyncMessage(null);
     setGameState('cartridgeConnect');
@@ -1068,6 +1085,34 @@ export default function App() {
   };
 
   useEffect(() => {
+    if (gameState !== 'cartridgeLoading') {
+      hasStartedWalletLoadingRef.current = false;
+      return;
+    }
+
+    if (
+      hasStartedWalletLoadingRef.current ||
+      isCartridgeConnected ||
+      isCartridgeConnecting ||
+      isWalletSyncing
+    ) {
+      return;
+    }
+
+    hasStartedWalletLoadingRef.current = true;
+    void handleWalletConnected();
+  }, [
+    gameState,
+    isCartridgeConnected,
+    isCartridgeConnecting,
+    isWalletSyncing,
+  ]);
+
+  useEffect(() => {
+    if (gameState === 'splash') {
+      return;
+    }
+
     if (!isCartridgeConnected || !cartridgeWallet || !cartridgeAddress) {
       bootstrappedWalletAddressRef.current = null;
       return;
@@ -1098,6 +1143,7 @@ export default function App() {
     cartridgeNetwork,
     cartridgeProfileName,
     cartridgeWallet,
+    gameState,
     isCartridgeConnected,
     playerWallet?.profileName,
     resetWalletSessionState,
@@ -1181,8 +1227,13 @@ export default function App() {
   useEffect(() => {
     if (!hasPendingProgressSync) return;
 
-    if (gameState === 'restaurant') {
+    if (gameState === 'reward') {
       void flushProgressCheckpointSync('fin_de_journee');
+      return;
+    }
+
+    if (gameState === 'restaurant') {
+      void flushProgressCheckpointSync('checkpoint_restaurant');
       return;
     }
 
@@ -1345,6 +1396,19 @@ export default function App() {
           <AnimatePresence mode="wait">
             {gameState === 'splash' && (
               <SplashScreen onStart={handleStartGame} />
+            )}
+
+            {gameState === 'cartridgeLoading' && (
+              <CartridgeConnectScreen
+                variant="loading"
+                isConnecting={isCartridgeConnecting}
+                isSyncing={isWalletSyncing}
+                network={cartridgeNetwork}
+                error={cartridgeError}
+                statusMessage={cartridgeStatusMessage}
+                syncMessage={walletSyncMessage}
+                onConnect={handleWalletConnected}
+              />
             )}
 
             {gameState === 'cartridgeConnect' && (

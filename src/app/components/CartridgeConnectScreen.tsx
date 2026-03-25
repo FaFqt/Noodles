@@ -13,6 +13,7 @@ interface CartridgeConnectScreenProps {
   error?: string | null;
   statusMessage?: string | null;
   syncMessage?: string | null;
+  variant?: "loading" | "connect";
   onConnect: () => Promise<void> | void;
 }
 
@@ -23,17 +24,42 @@ export default function CartridgeConnectScreen({
   error,
   statusMessage,
   syncMessage,
+  variant = "connect",
   onConnect,
 }: CartridgeConnectScreenProps) {
   const { language } = useLanguage();
+  const isLoadingVariant = variant === "loading";
 
   const helperText = useMemo(
     () =>
-      language === "fr"
-        ? "Connecte ton wallet Cartridge pour sauvegarder ton profil, ton XP et tes tokens Noods. Pour le moment, la connexion vise Sepolia afin de tester sans risque."
-        : "Connect your Cartridge wallet to save your profile, XP, and Noods tokens. For now, the connection targets Sepolia for safe testing.",
-    [language]
+      isLoadingVariant
+        ? language === "fr"
+          ? "On prépare ton profil joueur. Si c'est ta première visite, le Cartridge Controller peut s'ouvrir automatiquement pour autoriser la session du jeu."
+          : "We are preparing your player profile. If this is your first visit, Cartridge Controller may open automatically to authorize the game session."
+        : language === "fr"
+          ? "Connecte ton wallet Cartridge pour sauvegarder ton profil, ton XP et tes tokens Noods. Pour le moment, la connexion vise Sepolia afin de tester sans risque."
+          : "Connect your Cartridge wallet to save your profile, XP, and Noods tokens. For now, the connection targets Sepolia for safe testing.",
+    [isLoadingVariant, language]
   );
+
+  const showRetryButton =
+    !isLoadingVariant || Boolean(error) || (!isConnecting && !isSyncing && !statusMessage);
+
+  const ctaLabel = isLoadingVariant
+    ? language === "fr"
+      ? "Réessayer la connexion"
+      : "Retry connection"
+    : isSyncing
+      ? language === "fr"
+        ? "Synchronisation..."
+        : "Syncing..."
+      : isConnecting
+        ? language === "fr"
+          ? "Connexion..."
+          : "Connecting..."
+        : language === "fr"
+          ? "Se connecter avec Cartridge"
+          : "Connect with Cartridge";
 
   return (
     <ResponsiveGameCanvas
@@ -79,7 +105,13 @@ export default function CartridgeConnectScreen({
                 fontWeight: 700,
               }}
             >
-              {language === "fr" ? "Connexion wallet" : "Wallet connection"}
+              {isLoadingVariant
+                ? language === "fr"
+                  ? "Chargement du profil"
+                  : "Loading profile"
+                : language === "fr"
+                  ? "Connexion wallet"
+                  : "Wallet connection"}
             </div>
 
             <div
@@ -90,10 +122,35 @@ export default function CartridgeConnectScreen({
                 lineHeight: 1.45,
               }}
             >
-              {language === "fr"
-                ? "Première étape : on relie le vrai wallet Cartridge au jeu. L'XP et les Noods restent locaux pour l'instant, puis onchain viendra ensuite."
-                : "First step: connect the real Cartridge wallet to the game. XP and Noods stay local for now, while onchain features can come later."}
+              {isLoadingVariant
+                ? language === "fr"
+                  ? "Le jeu tente d'abord de retrouver une session Cartridge existante. Sinon, la fenêtre sécurisée du Controller s'ouvrira pour finaliser l'accès au jeu."
+                  : "The game first tries to recover an existing Cartridge session. Otherwise, the secure Controller window opens to finalize access to the game."
+                : language === "fr"
+                  ? "Première étape : on relie le vrai wallet Cartridge au jeu. L'XP et les Noods restent locaux pour l'instant, puis onchain viendra ensuite."
+                  : "First step: connect the real Cartridge wallet to the game. XP and Noods stay local for now, while onchain features can come later."}
             </div>
+
+            {isLoadingVariant ? (
+              <div className="mt-5 flex items-center justify-center gap-3 rounded-[18px] border border-[#f7d8a4]/25 bg-[rgba(255,241,222,0.08)] px-4 py-4 text-[#fff7e8]">
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1.2, ease: "linear", repeat: Infinity }}
+                  className="h-5 w-5 rounded-full border-2 border-[#ffd97f]/35 border-t-[#ffd97f]"
+                />
+                <span
+                  style={{
+                    fontFamily: "Fredoka, sans-serif",
+                    fontSize: "0.92rem",
+                    fontWeight: 600,
+                  }}
+                >
+                  {language === "fr"
+                    ? "Connexion et resynchronisation en cours..."
+                    : "Connecting and resyncing..."}
+                </span>
+              </div>
+            ) : null}
 
             <div
               className="mt-4 flex items-center justify-between rounded-[18px] border border-[#f7d8a4]/25 bg-[rgba(255,241,222,0.08)] px-4 py-3 text-[#fff1de]"
@@ -148,32 +205,24 @@ export default function CartridgeConnectScreen({
               </div>
             ) : null}
 
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => void onConnect()}
-              disabled={isConnecting || isSyncing}
-              className="mt-8 h-[60px] w-full rounded-[22px] bg-[linear-gradient(180deg,#ffcf67_0%,#ea8e30_100%)] text-[#fffdf8] shadow-[0_10px_22px_rgba(0,0,0,0.24)] disabled:opacity-75"
-              style={{
-                fontFamily: "Fredoka, sans-serif",
-                fontSize: "1rem",
-                fontWeight: 700,
-                textShadow: "0 2px 8px rgba(0,0,0,0.25)",
-              }}
-              type="button"
-            >
-              {isSyncing
-                ? language === "fr"
-                  ? "Synchronisation..."
-                  : "Syncing..."
-                : isConnecting
-                ? language === "fr"
-                  ? "Connexion..."
-                  : "Connecting..."
-                : language === "fr"
-                ? "Se connecter avec Cartridge"
-                : "Connect with Cartridge"}
-            </motion.button>
+            {showRetryButton ? (
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => void onConnect()}
+                disabled={isConnecting || isSyncing}
+                className="mt-8 h-[60px] w-full rounded-[22px] bg-[linear-gradient(180deg,#ffcf67_0%,#ea8e30_100%)] text-[#fffdf8] shadow-[0_10px_22px_rgba(0,0,0,0.24)] disabled:opacity-75"
+                style={{
+                  fontFamily: "Fredoka, sans-serif",
+                  fontSize: "1rem",
+                  fontWeight: 700,
+                  textShadow: "0 2px 8px rgba(0,0,0,0.25)",
+                }}
+                type="button"
+              >
+                {ctaLabel}
+              </motion.button>
+            ) : null}
           </div>
         </div>
       )}

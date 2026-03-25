@@ -60,6 +60,8 @@ export function getCartridgeNetworkFromChainId(
 }
 
 export const cartridgeSessionPolicies = buildGameSessionPolicies();
+let sessionPoliciesReady = false;
+let sessionPoliciesRequest: Promise<void> | null = null;
 
 export const cartridgeController = new Controller({
   defaultChainId:
@@ -71,3 +73,31 @@ export const cartridgeController = new Controller({
   errorDisplayMode: 'notification',
   propagateSessionErrors: true,
 });
+
+export async function ensureCartridgeSessionPolicies() {
+  if (sessionPoliciesReady) {
+    return;
+  }
+
+  if (sessionPoliciesRequest) {
+    return sessionPoliciesRequest;
+  }
+
+  sessionPoliciesRequest = (async () => {
+    await cartridgeController.updateSession({
+      policies: cartridgeSessionPolicies,
+    });
+    sessionPoliciesReady = true;
+  })();
+
+  try {
+    await sessionPoliciesRequest;
+  } finally {
+    sessionPoliciesRequest = null;
+  }
+}
+
+export function resetCartridgeSessionPoliciesState() {
+  sessionPoliciesReady = false;
+  sessionPoliciesRequest = null;
+}
