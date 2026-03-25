@@ -43,12 +43,17 @@ export interface OnchainPlayerProgress {
 
 const DOJO_PLAYER_SYSTEM_ADDRESS =
   import.meta.env.VITE_DOJO_PLAYER_SYSTEM_ADDRESS?.trim() ?? '';
+const DOJO_RPC_URL =
+  import.meta.env.VITE_DOJO_RPC_URL?.trim() ??
+  import.meta.env.VITE_STARKNET_RPC_URL?.trim() ??
+  '';
 
 function createDojoProvider(network: 'sepolia' | 'mainnet') {
   const nodeUrl =
-    network === 'mainnet'
-      ? 'https://starknet-mainnet.publicnode.com'
-      : 'https://starknet-sepolia.publicnode.com';
+    DOJO_RPC_URL ||
+    (network === 'mainnet'
+      ? 'https://api.cartridge.gg/x/starknet/mainnet'
+      : 'https://api.cartridge.gg/x/starknet/sepolia');
 
   return new Provider({ nodeUrl });
 }
