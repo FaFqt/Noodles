@@ -276,6 +276,18 @@ function incrementInventoryValue(
   };
 }
 
+function hasSameSyncedProgress(
+  left: Pick<typeof INITIAL_PLAYER_STATS, 'level' | 'xp' | 'xpToNext' | 'coins'>,
+  right: Pick<typeof INITIAL_PLAYER_STATS, 'level' | 'xp' | 'xpToNext' | 'coins'>
+) {
+  return (
+    left.level === right.level &&
+    left.xp === right.xp &&
+    left.xpToNext === right.xpToNext &&
+    left.coins === right.coins
+  );
+}
+
 export default function App() {
   const RESTAURANT_SERVICE_COOLDOWN_MS = 4 * 60 * 1000;
   const isMobile = useIsMobile();
@@ -361,6 +373,11 @@ export default function App() {
   const [hasPendingProgressSync, setHasPendingProgressSync] = useState(false);
   const bootstrappedWalletAddressRef = useRef<string | null>(null);
   const hasStartedWalletLoadingRef = useRef(false);
+  const progressSyncInFlightRef = useRef(false);
+  const progressSyncQueuedWhileInFlightRef = useRef(false);
+  const latestQueuedProgressSyncReasonRef = useRef('initialisation');
+  const latestPlayerStatsRef = useRef(playerStats);
+  const hasPendingProgressSyncRef = useRef(hasPendingProgressSync);
 
   const allRecipeCards: RecipeSelectionItem[] = useMemo(
     () =>
@@ -390,6 +407,19 @@ export default function App() {
     restaurantRewardFeaturesUnlocked ||
     playerStats.level >= 2 ||
     claimedLevelRewardIds.includes('level-2-tipjar');
+  const canSyncProgressOnDojo =
+    Boolean(cartridgeWallet) &&
+    isCartridgeConnected &&
+    Boolean(playerWallet?.dojoRegistered) &&
+    hasHydratedOnchainProgress;
+
+  useEffect(() => {
+    latestPlayerStatsRef.current = playerStats;
+  }, [playerStats]);
+
+  useEffect(() => {
+    hasPendingProgressSyncRef.current = hasPendingProgressSync;
+  }, [hasPendingProgressSync]);
 
   const restoreWalletRewardState = useCallback(
     (walletAddress: string, onchainSnapshot?: OnchainPlayerSnapshot | null) => {
@@ -436,16 +466,35 @@ export default function App() {
       const storedState = readWalletProgressState(walletAddress);
 
       if (!storedState) {
+        if (!onchainSnapshot) {
+          setPlayerStats((prev) => ({
+            ...INITIAL_PLAYER_STATS,
+            name: prev.name,
+          }));
+        }
         setHasPendingProgressSync(false);
         return;
       }
 
-      const onchainUpdatedAtMs = (onchainSnapshot?.progress.updatedAt ?? 0) * 1000;
-      const shouldUseLocalProgress =
-        storedState.hasPendingProgressSync || storedState.updatedAt > onchainUpdatedAtMs;
+      if (!onchainSnapshot) {
+        setPlayerStats(storedState.playerStats);
+        setHasPendingProgressSync(storedState.hasPendingProgressSync);
+        return;
+      }
+
+      const shouldUseLocalProgress = storedState.hasPendingProgressSync;
 
       if (shouldUseLocalProgress) {
         setPlayerStats(storedState.playerStats);
+      } else {
+        setPlayerStats((prev) => ({
+          ...prev,
+          level: onchainSnapshot.progress.level || INITIAL_PLAYER_STATS.level,
+          xp: onchainSnapshot.progress.xp,
+          xpToNext:
+            onchainSnapshot.progress.xpToNext || INITIAL_PLAYER_STATS.xpToNext,
+          coins: onchainSnapshot.inventory?.noodsBalance ?? prev.coins,
+        }));
       }
 
       setHasPendingProgressSync(storedState.hasPendingProgressSync);
@@ -453,66 +502,80 @@ export default function App() {
     []
   );
 
-  const resetWalletSessionState = useCallback(() => {
+  const clearWalletConnectionState = useCallback(() => {
     setWalletSyncMessage(null);
     setPlayerWallet(null);
     setDojoRegistrationConfirmed(false);
     setHasHydratedOnchainProgress(false);
-    setTipJarTokensAvailable(0);
-    setTipJarCollected(false);
-    setRestaurantRewardFeaturesUnlocked(false);
-    setGreenhouseUnlocked(false);
-    setPlayerInventory(INITIAL_PLAYER_INVENTORY);
-    setClaimedLevelRewardIds([]);
-    setPendingLevelRewards([]);
-    setHasPendingProgressSync(false);
   }, []);
 
-  const queueProgressCheckpointSync = useCallback(() => {
+  const queueProgressSync = useCallback((reason: string) => {
+    latestQueuedProgressSyncReasonRef.current = reason;
+    progressSyncQueuedWhileInFlightRef.current = true;
     setHasPendingProgressSync(true);
   }, []);
 
-  const flushProgressCheckpointSync = useCallback(
-    async (checkpointLabel: string) => {
-      if (
-        !hasPendingProgressSync ||
-        !cartridgeWallet ||
-        !isCartridgeConnected ||
-        !playerWallet?.dojoRegistered ||
-        !hasHydratedOnchainProgress
-      ) {
+  const flushProgressSyncQueue = useCallback(
+    async (triggerLabel: string) => {
+      if (!hasPendingProgressSyncRef.current || !canSyncProgressOnDojo || !cartridgeWallet) {
         return;
       }
 
-      const result = await syncPlayerProgressOnDojo({
-        wallet: cartridgeWallet,
-        level: playerStats.level,
-        xp: playerStats.xp,
-        xpToNext: playerStats.xpToNext,
-        noodsBalance: playerStats.coins,
-      });
-
-      if (result.status === 'failed') {
-        setWalletSyncMessage(
-          `La sync onchain du checkpoint ${checkpointLabel} a echoue: ${result.message}`
-        );
+      if (progressSyncInFlightRef.current) {
+        progressSyncQueuedWhileInFlightRef.current = true;
         return;
       }
 
-      if (result.status === 'synced') {
-        setHasPendingProgressSync(false);
+      progressSyncInFlightRef.current = true;
+
+      try {
+        while (hasPendingProgressSyncRef.current && canSyncProgressOnDojo) {
+          progressSyncQueuedWhileInFlightRef.current = false;
+          const snapshot = latestPlayerStatsRef.current;
+          const syncReason = latestQueuedProgressSyncReasonRef.current || triggerLabel;
+          const result = await syncPlayerProgressOnDojo({
+            wallet: cartridgeWallet,
+            level: snapshot.level,
+            xp: snapshot.xp,
+            xpToNext: snapshot.xpToNext,
+            noodsBalance: snapshot.coins,
+          });
+
+          if (result.status === 'failed') {
+            setWalletSyncMessage(
+              `La sync onchain (${syncReason}) a echoue: ${result.message}`
+            );
+            return;
+          }
+
+          if (result.status === 'skipped') {
+            setWalletSyncMessage(
+              `La sync onchain (${syncReason}) a ete ignoree: ${result.message}`
+            );
+            setHasPendingProgressSync(false);
+            return;
+          }
+
+          const latestProgress = latestPlayerStatsRef.current;
+          const hasNewerProgress =
+            progressSyncQueuedWhileInFlightRef.current ||
+            !hasSameSyncedProgress(snapshot, latestProgress);
+
+          if (!hasNewerProgress) {
+            setHasPendingProgressSync(false);
+            return;
+          }
+        }
+      } finally {
+        progressSyncInFlightRef.current = false;
       }
     },
     [
       cartridgeWallet,
-      hasHydratedOnchainProgress,
-      hasPendingProgressSync,
       isCartridgeConnected,
-      playerStats.coins,
-      playerStats.level,
-      playerStats.xp,
-      playerStats.xpToNext,
+      canSyncProgressOnDojo,
       playerWallet?.dojoRegistered,
+      hasHydratedOnchainProgress,
     ]
   );
 
@@ -534,14 +597,6 @@ export default function App() {
         return null;
       }
 
-      setPlayerStats((prev) => ({
-        ...prev,
-        level: onchainSnapshot.progress.level || INITIAL_PLAYER_STATS.level,
-        xp: onchainSnapshot.progress.xp,
-        xpToNext:
-          onchainSnapshot.progress.xpToNext || INITIAL_PLAYER_STATS.xpToNext,
-        coins: onchainSnapshot.inventory?.noodsBalance ?? prev.coins,
-      }));
       setHasHydratedOnchainProgress(true);
       return onchainSnapshot;
     },
@@ -570,24 +625,44 @@ export default function App() {
               });
 
         if (remoteRegistrationState === true) {
-          setDojoRegistrationConfirmed(true);
-          setKnownDojoPlayers((prev) => {
-            const next = new Set(prev);
-            next.add(normalizedAddress);
-            return next;
-          });
-          const onchainSnapshot = await hydrateProgressFromDojo({
-            playerAddress: result.address,
-            network: result.network,
-          });
-          restoreWalletProgressState(result.address, onchainSnapshot);
-          restoreWalletRewardState(result.address, onchainSnapshot);
-          const hydrationSummary = getDojoHydrationSummary(onchainSnapshot);
-          if (hydrationSummary) {
-            setWalletSyncMessage(`Compte joueur et ${hydrationSummary}.`);
+          const dojoSync = await syncPlayerOnDojo({ wallet: result.wallet });
+
+          if (dojoSync.status === 'missing') {
+            setKnownDojoPlayers((prev) => {
+              const next = new Set(prev);
+              next.delete(normalizedAddress);
+              return next;
+            });
+          } else if (dojoSync.status === 'failed') {
+            setWalletSyncMessage(
+              `Session Cartridge ouverte, mais le signal login Dojo a echoue: ${dojoSync.message}`
+            );
           }
-          setGameState('village');
-          return;
+
+          if (dojoSync.status !== 'missing') {
+            setDojoRegistrationConfirmed(true);
+            setKnownDojoPlayers((prev) => {
+              const next = new Set(prev);
+              next.add(normalizedAddress);
+              return next;
+            });
+            const onchainSnapshot = await hydrateProgressFromDojo({
+              playerAddress: result.address,
+              network: result.network,
+            });
+            restoreWalletProgressState(result.address, onchainSnapshot);
+            restoreWalletRewardState(result.address, onchainSnapshot);
+            const hydrationSummary = getDojoHydrationSummary(onchainSnapshot);
+            if (hydrationSummary) {
+              setWalletSyncMessage(
+                dojoSync.status === 'synced'
+                  ? `Compte joueur retrouve, session Dojo rafraichie et ${hydrationSummary}.`
+                  : `Compte joueur et ${hydrationSummary}.`
+              );
+            }
+            setGameState('village');
+            return;
+          }
         }
 
         if (remoteRegistrationState === null) {
@@ -697,7 +772,6 @@ export default function App() {
 
   const handleWalletConnected = async () => {
     try {
-      resetWalletSessionState();
       const result = await connectWallet();
 
       if (result?.wallet && result.address) {
@@ -743,7 +817,7 @@ export default function App() {
   const handleWalletDisconnect = async () => {
     bootstrappedWalletAddressRef.current = null;
     hasStartedWalletLoadingRef.current = false;
-    resetWalletSessionState();
+    clearWalletConnectionState();
     setWalletSyncMessage(null);
     setGameState('cartridgeConnect');
     await disconnectWallet();
@@ -770,7 +844,16 @@ export default function App() {
       return;
     }
 
-    setPlayerStats(INITIAL_PLAYER_STATS);
+    if (typeof window !== 'undefined' && playerWallet?.address) {
+      window.localStorage.removeItem(getWalletRewardStateStorageKey(playerWallet.address));
+      window.localStorage.removeItem(getWalletProgressStateStorageKey(playerWallet.address));
+    }
+
+    progressSyncQueuedWhileInFlightRef.current = false;
+    setPlayerStats((prev) => ({
+      ...INITIAL_PLAYER_STATS,
+      name: prev.name,
+    }));
     setCompletedServices(0);
     setDayCoinsEarned(0);
     setDayXpEarned(0);
@@ -968,7 +1051,7 @@ export default function App() {
     setDayXpEarned(updatedDayXp);
     setDayServiceResults(updatedDayResults);
     setPendingLevelRewards(updatedPendingRewards);
-    queueProgressCheckpointSync();
+    queueProgressSync('xp_service_terminee');
 
     const nextCompletedServices = completedServices + 1;
 
@@ -1026,7 +1109,7 @@ export default function App() {
           ...prev,
           coins: prev.coins + reward.coinsBonus,
         }));
-        queueProgressCheckpointSync();
+        queueProgressSync(`reward_${reward.id}`);
       }
 
       if (reward.type === 'seed' && reward.seedCrop && reward.seedAmount) {
@@ -1124,7 +1207,6 @@ export default function App() {
     }
 
     bootstrappedWalletAddressRef.current = normalizedAddress;
-    resetWalletSessionState();
 
     void bootstrapWalletSession({
       wallet: cartridgeWallet,
@@ -1146,12 +1228,12 @@ export default function App() {
     gameState,
     isCartridgeConnected,
     playerWallet?.profileName,
-    resetWalletSessionState,
   ]);
 
   useEffect(() => {
     if (!cartridgeAddress || !isCartridgeConnected) {
       setPlayerWallet(null);
+      setDojoRegistrationConfirmed(false);
       setHasHydratedOnchainProgress(false);
       return;
     }
@@ -1226,21 +1308,16 @@ export default function App() {
 
   useEffect(() => {
     if (!hasPendingProgressSync) return;
-
-    if (gameState === 'reward') {
-      void flushProgressCheckpointSync('fin_de_journee');
-      return;
-    }
-
-    if (gameState === 'restaurant') {
-      void flushProgressCheckpointSync('checkpoint_restaurant');
-      return;
-    }
-
-    if (gameState === 'village') {
-      void flushProgressCheckpointSync('retour_village');
-    }
-  }, [flushProgressCheckpointSync, gameState, hasPendingProgressSync]);
+    void flushProgressSyncQueue('etat_local_mis_a_jour');
+  }, [
+    canSyncProgressOnDojo,
+    flushProgressSyncQueue,
+    hasPendingProgressSync,
+    playerStats.coins,
+    playerStats.level,
+    playerStats.xp,
+    playerStats.xpToNext,
+  ]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1278,7 +1355,7 @@ export default function App() {
   ]);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !playerWallet?.address) return;
+    if (typeof window === 'undefined' || !playerWallet?.address || isWalletSyncing) return;
 
     const nextState: WalletProgressState = {
       playerStats,
@@ -1290,7 +1367,7 @@ export default function App() {
       getWalletProgressStateStorageKey(playerWallet.address),
       JSON.stringify(nextState)
     );
-  }, [hasPendingProgressSync, playerStats, playerWallet?.address]);
+  }, [hasPendingProgressSync, isWalletSyncing, playerStats, playerWallet?.address]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1336,12 +1413,12 @@ export default function App() {
 
     const handlePageHide = () => {
       if (!hasPendingProgressSync) return;
-      void flushProgressCheckpointSync('fermeture_app');
+      void flushProgressSyncQueue('fermeture_app');
     };
 
     window.addEventListener('pagehide', handlePageHide);
     return () => window.removeEventListener('pagehide', handlePageHide);
-  }, [flushProgressCheckpointSync, hasPendingProgressSync]);
+  }, [flushProgressSyncQueue, hasPendingProgressSync]);
 
   const handleCollectTipJar = () => {
     if (tipJarTokensAvailable <= 0 || tipJarCollected) return;
@@ -1352,7 +1429,7 @@ export default function App() {
     }));
     setTipJarCollected(true);
     setTipJarTokensAvailable(0);
-    queueProgressCheckpointSync();
+    queueProgressSync('collecte_tip_jar');
   };
 
   return (
