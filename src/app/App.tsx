@@ -78,7 +78,6 @@ function shuffleArray<T>(array: T[]): T[] {
 }
 
 const DOJO_REGISTERED_PLAYERS_STORAGE_KEY = 'dojoRegisteredPlayers';
-const PLAYER_WALLET_STORAGE_KEY = 'playerWallet';
 
 function readKnownDojoPlayers() {
   if (typeof window === 'undefined') return new Set<string>();
@@ -126,18 +125,7 @@ export default function App() {
     maxStars: 15,
     coins: 10,
   });
-  const [playerWallet, setPlayerWallet] = useState<PlayerWallet | null>(() => {
-    if (typeof window === 'undefined') return null;
-
-    const rawValue = window.localStorage.getItem(PLAYER_WALLET_STORAGE_KEY);
-    if (!rawValue) return null;
-
-    try {
-      return JSON.parse(rawValue) as PlayerWallet;
-    } catch {
-      return null;
-    }
-  });
+  const [playerWallet, setPlayerWallet] = useState<PlayerWallet | null>(null);
 
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
@@ -228,6 +216,8 @@ export default function App() {
   const handleWalletConnected = async () => {
     try {
       setWalletSyncMessage(null);
+      setPlayerWallet(null);
+      setDojoRegistrationConfirmed(false);
       const result = await connectWallet();
 
       if (result?.wallet && result.profileName && result.address) {
@@ -352,9 +342,6 @@ export default function App() {
     setDojoRegistrationConfirmed(false);
     setPlayerWallet(null);
     setWalletSyncMessage(null);
-    if (typeof window !== 'undefined') {
-      window.localStorage.removeItem(PLAYER_WALLET_STORAGE_KEY);
-    }
     setGameState('cartridgeConnect');
     await disconnectWallet();
   };
@@ -607,7 +594,10 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (!cartridgeAddress) return;
+    if (!cartridgeAddress || !isCartridgeConnected) {
+      setPlayerWallet(null);
+      return;
+    }
 
     const nextProfileName = cartridgeProfileName ?? playerStats.name;
 
@@ -632,22 +622,12 @@ export default function App() {
   }, [
     cartridgeAddress,
     cartridgeBalance,
+    isCartridgeConnected,
     cartridgeNetwork,
     cartridgeProfileName,
     dojoRegistrationConfirmed,
     playerStats.name,
   ]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    if (playerWallet) {
-      window.localStorage.setItem(PLAYER_WALLET_STORAGE_KEY, JSON.stringify(playerWallet));
-      return;
-    }
-
-    window.localStorage.removeItem(PLAYER_WALLET_STORAGE_KEY);
-  }, [playerWallet]);
 
   useEffect(() => {
     if (!playerWallet?.address) return;
