@@ -1,8 +1,10 @@
 use starknet::ContractAddress;
+use noodles_dojo::models::PlayerProgress;
 
 #[starknet::interface]
 pub trait IPlayerSystem<TContractState> {
     fn is_player_registered(self: @TContractState, player: ContractAddress) -> bool;
+    fn get_player_progress(self: @TContractState, player: ContractAddress) -> PlayerProgress;
     fn register_player(ref self: TContractState, username: felt252);
     fn touch_login(ref self: TContractState);
     fn sync_player_progress(
@@ -66,6 +68,11 @@ pub mod player_system {
             let world = self.world_default();
             let profile: PlayerProfile = world.read_model(player);
             profile.created_at != 0
+        }
+
+        fn get_player_progress(self: @ContractState, player: ContractAddress) -> PlayerProgress {
+            let world = self.world_default();
+            world.read_model(player)
         }
 
         fn register_player(ref self: ContractState, username: felt252) {

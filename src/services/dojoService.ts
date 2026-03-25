@@ -34,6 +34,13 @@ export interface ResetProgressResult {
   txHash?: string | null;
 }
 
+export interface OnchainPlayerProgress {
+  level: number;
+  xp: number;
+  xpToNext: number;
+  updatedAt: number;
+}
+
 const DOJO_PLAYER_SYSTEM_ADDRESS =
   import.meta.env.VITE_DOJO_PLAYER_SYSTEM_ADDRESS?.trim() ?? '';
 
@@ -54,6 +61,16 @@ function normalizeUsernameForFelt(input: string) {
 
   const safeName = asciiOnly.length > 0 ? asciiOnly.slice(0, 31) : 'Bento-chan';
   return shortString.encodeShortString(safeName);
+}
+
+function feltToNumber(value: string | null | undefined) {
+  if (!value) return 0;
+
+  try {
+    return Number(BigInt(value));
+  } catch {
+    return 0;
+  }
 }
 
 function isPlayerAlreadyRegisteredError(error: unknown) {
@@ -191,6 +208,38 @@ export async function checkPlayerRegistrationOnDojo(params: {
     return firstValue === '0x1' || firstValue === '1';
   } catch (error) {
     console.error('Failed to check Dojo player registration:', error);
+    return null;
+  }
+}
+
+export async function getPlayerProgressOnDojo(params: {
+  playerAddress: string;
+  network: 'sepolia' | 'mainnet';
+}): Promise<OnchainPlayerProgress | null> {
+  if (!DOJO_PLAYER_SYSTEM_ADDRESS || DOJO_PLAYER_SYSTEM_ADDRESS === '0x0') {
+    return null;
+  }
+
+  try {
+    const provider = createDojoProvider(params.network);
+    const result = await provider.callContract({
+      contractAddress: DOJO_PLAYER_SYSTEM_ADDRESS,
+      entrypoint: 'get_player_progress',
+      calldata: CallData.compile([params.playerAddress]),
+    });
+
+    if (!Array.isArray(result) || result.length < 5) {
+      return null;
+    }
+
+    return {
+      level: feltToNumber(result[1]),
+      xp: feltToNumber(result[2]),
+      xpToNext: feltToNumber(result[3]),
+      updatedAt: feltToNumber(result[4]),
+    };
+  } catch (error) {
+    console.error('Failed to read Dojo player progress:', error);
     return null;
   }
 }

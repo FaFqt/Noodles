@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { LanguageProvider } from './context/LanguageContext';
 import { SplashScreen } from './components/SplashScreen';
@@ -21,6 +21,7 @@ import type { Order } from './types/order';
 import type { PlayerWallet } from './types/playerWallet';
 import {
   checkPlayerRegistrationOnDojo,
+  getPlayerProgressOnDojo,
   registerPlayerOnDojo,
   resetPlayerProgressOnDojo,
   syncPlayerOnDojo,
@@ -189,6 +190,7 @@ export default function App() {
   const [dojoRegistrationConfirmed, setDojoRegistrationConfirmed] = useState(false);
   const [knownDojoPlayers, setKnownDojoPlayers] = useState<Set<string>>(readKnownDojoPlayers);
   const [isWalletSyncing, setIsWalletSyncing] = useState(false);
+  const [hasHydratedOnchainProgress, setHasHydratedOnchainProgress] = useState(false);
 
   const allRecipeCards: RecipeSelectionItem[] = useMemo(
     () =>
@@ -220,11 +222,36 @@ export default function App() {
     setGameState('cartridgeConnect');
   };
 
+  const hydrateProgressFromDojo = useCallback(
+    async (params: { playerAddress: string; network: 'sepolia' | 'mainnet' }) => {
+      const onchainProgress = await getPlayerProgressOnDojo(params);
+
+      if (!onchainProgress) {
+        setHasHydratedOnchainProgress(false);
+        setWalletSyncMessage(
+          'Le wallet est connecte, mais la progression onchain n’a pas pu etre relue. La sync automatique reste en pause pour eviter tout ecrasement.'
+        );
+        return false;
+      }
+
+      setPlayerStats((prev) => ({
+        ...prev,
+        level: onchainProgress.level || INITIAL_PLAYER_STATS.level,
+        xp: onchainProgress.xp,
+        xpToNext: onchainProgress.xpToNext || INITIAL_PLAYER_STATS.xpToNext,
+      }));
+      setHasHydratedOnchainProgress(true);
+      return true;
+    },
+    []
+  );
+
   const handleWalletConnected = async () => {
     try {
       setWalletSyncMessage(null);
       setPlayerWallet(null);
       setDojoRegistrationConfirmed(false);
+      setHasHydratedOnchainProgress(false);
       const result = await connectWallet();
 
       if (result?.wallet && result.address) {
@@ -249,7 +276,13 @@ export default function App() {
             next.add(normalizedAddress);
             return next;
           });
-          setWalletSyncMessage('Compte joueur deja present onchain sur Dojo.');
+          const didHydrateProgress = await hydrateProgressFromDojo({
+            playerAddress: result.address,
+            network: result.network,
+          });
+          if (didHydrateProgress) {
+            setWalletSyncMessage('Compte joueur et progression recuperes depuis Dojo.');
+          }
           setGameState('village');
           return;
         }
@@ -264,9 +297,15 @@ export default function App() {
               next.add(normalizedAddress);
               return next;
             });
-            setWalletSyncMessage(
-              'Etat onchain verifie par synchronisation Cartridge sur Dojo.'
-            );
+            const didHydrateProgress = await hydrateProgressFromDojo({
+              playerAddress: result.address,
+              network: result.network,
+            });
+            if (didHydrateProgress) {
+              setWalletSyncMessage(
+                'Etat onchain verifie et progression recuperee depuis Dojo.'
+              );
+            }
             setGameState('village');
             return;
           }
@@ -296,18 +335,28 @@ export default function App() {
             next.add(normalizedAddress);
             return next;
           });
+          const didHydrateProgress = await hydrateProgressFromDojo({
+            playerAddress: result.address,
+            network: result.network,
+          });
           setWalletSyncMessage(
             dojoRegistration.status === 'registered'
-              ? 'Compte joueur enregistre onchain sur Dojo.'
-              : 'Compte joueur deja present onchain sur Dojo.'
+              ? didHydrateProgress
+                ? 'Compte joueur enregistre et progression initialisee sur Dojo.'
+                : 'Compte joueur enregistre sur Dojo, mais la lecture de progression a echoue.'
+              : didHydrateProgress
+                ? 'Compte joueur deja present et progression recuperee depuis Dojo.'
+                : 'Compte joueur deja present sur Dojo, mais la lecture de progression a echoue.'
           );
         } else if (dojoRegistration.status === 'skipped') {
           setDojoRegistrationConfirmed(false);
+          setHasHydratedOnchainProgress(false);
           setWalletSyncMessage(
             'Wallet connecte. L’enregistrement Dojo sera active quand l’adresse du system sera configuree.'
           );
         } else {
           setDojoRegistrationConfirmed(false);
+          setHasHydratedOnchainProgress(false);
           setWalletSyncMessage(
             `Wallet connecte, mais l’enregistrement Dojo a echoue: ${dojoRegistration.message}`
           );
@@ -352,6 +401,7 @@ export default function App() {
 
   const handleWalletDisconnect = async () => {
     setDojoRegistrationConfirmed(false);
+    setHasHydratedOnchainProgress(false);
     setPlayerWallet(null);
     setWalletSyncMessage(null);
     setGameState('cartridgeConnect');
@@ -391,6 +441,7 @@ export default function App() {
     setRestaurantRewardFeaturesUnlocked(false);
     setClaimedLevelRewardIds([]);
     setPendingLevelRewards([]);
+    setHasHydratedOnchainProgress(true);
     setWalletSyncMessage(
       resetResult.status === 'reset'
         ? 'Progression remise a zero pour le dev. Retour a l’etat initial.'
@@ -642,6 +693,7 @@ export default function App() {
   useEffect(() => {
     if (!cartridgeAddress || !isCartridgeConnected) {
       setPlayerWallet(null);
+      setHasHydratedOnchainProgress(false);
       return;
     }
 
@@ -714,7 +766,14 @@ export default function App() {
   }, [playerWallet?.address, playerWallet?.network]);
 
   useEffect(() => {
-    if (!cartridgeWallet || !isCartridgeConnected || !playerWallet?.dojoRegistered) return;
+    if (
+      !cartridgeWallet ||
+      !isCartridgeConnected ||
+      !playerWallet?.dojoRegistered ||
+      !hasHydratedOnchainProgress
+    ) {
+      return;
+    }
 
     let isCancelled = false;
 
@@ -744,6 +803,7 @@ export default function App() {
     playerStats.level,
     playerStats.xp,
     playerStats.xpToNext,
+    hasHydratedOnchainProgress,
     playerWallet?.dojoRegistered,
   ]);
 
