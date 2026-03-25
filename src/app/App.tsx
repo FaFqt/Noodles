@@ -306,6 +306,9 @@ export default function App() {
             `Wallet connecte, mais l’enregistrement Dojo a echoue: ${dojoRegistration.message}`
           );
         }
+
+        setGameState('village');
+        return;
       }
 
       setWalletSyncMessage(
