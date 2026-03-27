@@ -240,11 +240,11 @@ export const GREENHOUSE_GROWTH_DURATION_MS: Record<GreenhouseIngredientId, numbe
 
 export const TEST_GREENHOUSE_SEED_STOCK: Record<GreenhouseIngredientId, number> = {
   corn: 2,
-  bamboo: 0,
-  mushroom: 0,
-  garlic: 0,
+  bamboo: 2,
+  mushroom: 2,
+  garlic: 2,
   dragonpepper: 2,
-  firechili: 0,
+  firechili: 2,
   goldenegg: 0,
   honeybamboo: 0,
   sakuramushroom: 0,

@@ -18,11 +18,31 @@ import seedNumAsset from '../../assets/ui/SeedNum.svg';
 import rareAsset from '../../assets/ui/Rare.svg';
 import epicAsset from '../../assets/ui/Epic.svg';
 import legendaryAsset from '../../assets/ui/Legendary.svg';
-import seedPhaseAsset from '../../assets/greenhouse/seed_phase.png';
-import sproutAsset from '../../assets/greenhouse/sprout.png';
-import sproutPhaseTwoAsset from '../../assets/greenhouse/sprout_phase2.png';
-import cornReadyAsset from '../../assets/greenhouse/corn_out.png';
-import dragonPepperReadyAsset from '../../assets/greenhouse/dragonpepper_out.png';
+import soilAsset from '../../assets/greenhouse/soil.png';
+import sproutCornAsset from '../../assets/greenhouse/Corn/sproutCorn.png';
+import youngPlantCornAsset from '../../assets/greenhouse/Corn/youngPlantCorn.png';
+import matureCornAsset from '../../assets/greenhouse/Corn/matureCorn.png';
+import harvestCornAsset from '../../assets/greenhouse/Corn/harvestCorn.png';
+import sproutBambooAsset from '../../assets/greenhouse/Bamboo/sproutBamboo.png';
+import youngPlantBambooAsset from '../../assets/greenhouse/Bamboo/younfPlantBamboo.png';
+import matureBambooAsset from '../../assets/greenhouse/Bamboo/matureBamboo.png';
+import harvestBambooAsset from '../../assets/greenhouse/Bamboo/harvestBamboo.png';
+import sproutMushroomAsset from '../../assets/greenhouse/Mushroom/sproutMushroom.png';
+import youngPlantMushroomAsset from '../../assets/greenhouse/Mushroom/youngPlantMushroom.png';
+import matureMushroomAsset from '../../assets/greenhouse/Mushroom/matureMushroom.png';
+import harvestMushroomAsset from '../../assets/greenhouse/Mushroom/harvestMushroom.png';
+import sproutGarlicAsset from '../../assets/greenhouse/Garlic/sproutGarlic.png';
+import youngPlantGarlicAsset from '../../assets/greenhouse/Garlic/youngPlantGarlic.png';
+import matureGarlicAsset from '../../assets/greenhouse/Garlic/matureGarlic.png';
+import harvestGarlicAsset from '../../assets/greenhouse/Garlic/harvestGarlic.png';
+import sproutDragonPepperAsset from '../../assets/greenhouse/DragonPepper/sproutDragonPepper.png';
+import youngPlantDragonPepperAsset from '../../assets/greenhouse/DragonPepper/youngPlantDragonPepper.png';
+import matureDragonPepperAsset from '../../assets/greenhouse/DragonPepper/matureDragonPepper.png';
+import harvestDragonPepperAsset from '../../assets/greenhouse/DragonPepper/harvestDragonPepper.png';
+import sproutFireChiliAsset from '../../assets/greenhouse/FireChili/sproutFireChili.png';
+import youngPlantFireChiliAsset from '../../assets/greenhouse/FireChili/youngPlantFireChili.png';
+import matureFireChiliAsset from '../../assets/greenhouse/FireChili/matureFireChili.png';
+import harvestFireChiliAsset from '../../assets/greenhouse/FireChili/harvestFireChili.png';
 
 const DESIGN_WIDTH = 430;
 const DESIGN_HEIGHT = 780;
@@ -32,7 +52,7 @@ const s = (value: number) => value * SCALE;
 
 export type GreenhouseCrop = GreenhouseIngredientId;
 
-type PlotStage = 'empty' | 'seed' | 'sprout' | 'sprout2' | 'ready';
+type PlotStage = 'empty' | 'phase1' | 'phase2' | 'phase3' | 'phase4' | 'phase5';
 
 interface GreenhousePlotState {
   id: string;
@@ -66,11 +86,11 @@ const UI = {
     w: s(160),
     h: s(130),
     soilX: s(18),
-    soilY: s(20),
+    soilY: s(5),
     soilW: s(124),
     soilH: s(84),
-    imageW: s(104),
-    imageH: s(88),
+    imageW: s(110),
+    imageH: s(110),
     labelX: s(16),
     labelY: s(50),
     timerX: s(16),
@@ -80,34 +100,33 @@ const UI = {
     progressW: s(128),
     progressH: s(6),
     actionX: s(16),
-    actionY: s(100),
+    actionY: s(90),
     actionW: s(128),
-    actionH: s(22),
+    actionH: s(30),
   },
   plotLayout: [
     { id: 'plot-1', x: s(50), y: s(310) },
     { id: 'plot-2', x: s(210), y: s(310) },
-    { id: 'plot-3', x: s(40), y: s(440) },
-    { id: 'plot-4', x: s(220), y: s(440) },
+    { id: 'plot-3', x: s(35), y: s(435) },
+    { id: 'plot-4', x: s(225), y: s(435) },
   ],
-  inventoryPanel: { x: s(28), y: s(506), w: s(374), h: s(170) },
+  inventoryPanel: { x: s(20), y: s(496), w: s(390), h: s(214) },
   inventoryCards: {
     railX: s(10),
-    railY: s(54),
-    railW: s(354),
-    railH: s(104),
-    gap: s(8),
-    cardW: s(100),
-    cardH: s(100),
+    railY: s(64),
+    railW: s(370),
+    railH: s(136),
+    gap: s(10),
+    cardW: s(110),
+    cardH: s(110),
     badgeH: s(22),
-    imageY: s(12),
-    imageW: s(48),
-    imageH: s(48),
+    imageY: s(14),
+    imageW: s(52),
+    imageH: s(52),
     countW: s(56),
     countH: s(22),
     labelY: s(66),
   },
-  plotInfo: { x: s(32), y: s(690), w: s(366), h: s(54) },
   statusToast: { x: s(215), y: s(150) },
 } as const;
 
@@ -117,6 +136,55 @@ const PLOT_LAYOUT = [
   { id: 'plot-3', x: UI.plotLayout[2].x, y: UI.plotLayout[2].y },
   { id: 'plot-4', x: UI.plotLayout[3].x, y: UI.plotLayout[3].y },
 ] as const;
+
+const PLANT_PHASE_ASSETS: Partial<
+  Record<
+    GreenhouseCrop,
+    {
+      phase2: string;
+      phase3: string;
+      phase4: string;
+      phase5: string;
+    }
+  >
+> = {
+  corn: {
+    phase2: sproutCornAsset,
+    phase3: youngPlantCornAsset,
+    phase4: matureCornAsset,
+    phase5: harvestCornAsset,
+  },
+  bamboo: {
+    phase2: sproutBambooAsset,
+    phase3: youngPlantBambooAsset,
+    phase4: matureBambooAsset,
+    phase5: harvestBambooAsset,
+  },
+  mushroom: {
+    phase2: sproutMushroomAsset,
+    phase3: youngPlantMushroomAsset,
+    phase4: matureMushroomAsset,
+    phase5: harvestMushroomAsset,
+  },
+  garlic: {
+    phase2: sproutGarlicAsset,
+    phase3: youngPlantGarlicAsset,
+    phase4: matureGarlicAsset,
+    phase5: harvestGarlicAsset,
+  },
+  dragonpepper: {
+    phase2: sproutDragonPepperAsset,
+    phase3: youngPlantDragonPepperAsset,
+    phase4: matureDragonPepperAsset,
+    phase5: harvestDragonPepperAsset,
+  },
+  firechili: {
+    phase2: sproutFireChiliAsset,
+    phase3: youngPlantFireChiliAsset,
+    phase4: matureFireChiliAsset,
+    phase5: harvestFireChiliAsset,
+  },
+};
 
 function readStoredGreenhouseState(initialSeedInventory: SeedInventory) {
   if (typeof window === 'undefined') {
@@ -221,37 +289,44 @@ function getPlotVisual(plot: GreenhousePlotState, now: number) {
   const elapsed = Math.max(0, now - plot.plantedAt);
   const progress = Math.max(0, Math.min(1, elapsed / totalDuration));
   const remainingMs = Math.max(0, totalDuration - elapsed);
+  const phaseAssets = PLANT_PHASE_ASSETS[plot.crop];
+  const fallbackImage =
+    GREENHOUSE_INGREDIENTS.find((ingredient) => ingredient.id === plot.crop)?.image ?? null;
 
   if (progress >= 1) {
     return {
-      stage: 'ready' as PlotStage,
-      image:
-        plot.crop === 'corn'
-          ? cornReadyAsset
-          : plot.crop === 'dragonpepper'
-            ? dragonPepperReadyAsset
-            : GREENHOUSE_INGREDIENTS.find((ingredient) => ingredient.id === plot.crop)?.image ??
-              null,
+      stage: 'phase5' as PlotStage,
+      image: phaseAssets?.phase5 ?? fallbackImage,
       progress,
       remainingMs,
       isReady: true,
     };
   }
 
-  if (progress >= 0.66) {
+  if (progress >= 0.75) {
     return {
-      stage: 'sprout2' as PlotStage,
-      image: sproutPhaseTwoAsset,
+      stage: 'phase4' as PlotStage,
+      image: phaseAssets?.phase4 ?? fallbackImage,
       progress,
       remainingMs,
       isReady: false,
     };
   }
 
-  if (progress >= 0.33) {
+  if (progress >= 0.5) {
     return {
-      stage: 'sprout' as PlotStage,
-      image: sproutAsset,
+      stage: 'phase3' as PlotStage,
+      image: phaseAssets?.phase3 ?? fallbackImage,
+      progress,
+      remainingMs,
+      isReady: false,
+    };
+  }
+
+  if (progress >= 0.25) {
+    return {
+      stage: 'phase2' as PlotStage,
+      image: phaseAssets?.phase2 ?? fallbackImage,
       progress,
       remainingMs,
       isReady: false,
@@ -259,8 +334,8 @@ function getPlotVisual(plot: GreenhousePlotState, now: number) {
   }
 
   return {
-    stage: 'seed' as PlotStage,
-    image: seedPhaseAsset,
+    stage: 'phase1' as PlotStage,
+    image: soilAsset,
     progress,
     remainingMs,
     isReady: false,
@@ -361,9 +436,6 @@ export default function GreenhousePhase({
     [greenhouseState.plots, now]
   );
 
-  const selectedPlot =
-    greenhouseState.plots.find((plot) => plot.id === selectedPlotId) ?? greenhouseState.plots[0];
-  const selectedPlotVisual = getPlotVisual(selectedPlot, now);
   const inventoryPlot =
     greenhouseState.plots.find((plot) => plot.id === inventoryPlotId) ?? null;
 
@@ -387,9 +459,6 @@ export default function GreenhousePhase({
     badge: getRarityBadge(ingredient.rarity),
   }));
 
-  const selectedPlotLabel = `${
-    language === 'fr' ? 'Parcelle' : 'Plot'
-  } ${selectedPlot.id.split('-')[1]}`;
   const inventoryPlotLabel = inventoryPlotId
     ? `${language === 'fr' ? 'Parcelle' : 'Plot'} ${inventoryPlotId.split('-')[1]}`
     : null;
@@ -523,15 +592,14 @@ export default function GreenhousePhase({
                   type="button"
                   whileTap={{ scale: 0.98 }}
                   onClick={() => setSelectedPlotId(id)}
-                  className="absolute overflow-hidden rounded-[28px] border text-left"
+                  className="absolute overflow-hidden rounded-[28px] text-left"
                   style={{
                     left: x,
                     top: y,
                     width: UI.plotCard.w,
                     height: UI.plotCard.h,
-                    borderColor: isSelected ? '#F7F1AE' : 'rgba(231,246,211,0.3)',
                     boxShadow: isSelected
-                      ? '0 16px 28px rgba(11,26,11,0.28), 0 0 0 2px rgba(255,240,181,0.16)'
+                      ? '0 16px 28px rgba(11,26,11,0.22)'
                       : '0 14px 24px rgba(11,26,11,0.2)',
                   }}
                 >
@@ -627,14 +695,15 @@ export default function GreenhousePhase({
                         draggable={false}
                       />
                       <span
-                        className="absolute inset-0 flex items-center justify-center"
+                        className="absolute left-0 right-0 flex justify-center text-center leading-none"
                         style={{
+                          top: '50%',
                           fontFamily: 'Fredoka, sans-serif',
-                          fontSize: s(9),
+                          fontSize: s(10),
                           fontWeight: 700,
                           color: '#FFFDF7',
                           textShadow: '0 1px 4px rgba(0,0,0,0.45)',
-                          transform: 'translateY(-1px)',
+                          transform: 'translateY(calc(-50% - 4px))',
                         }}
                       >
                         {language === 'fr' ? 'PLANTER' : 'PLANT'}
@@ -666,14 +735,15 @@ export default function GreenhousePhase({
                         draggable={false}
                       />
                       <span
-                        className="absolute inset-0 flex items-center justify-center"
+                        className="absolute left-0 right-0 flex justify-center text-center leading-none"
                         style={{
+                          top: '50%',
                           fontFamily: 'Fredoka, sans-serif',
-                          fontSize: s(9),
+                          fontSize: s(10),
                           fontWeight: 700,
                           color: '#FFFDF7',
                           textShadow: '0 1px 4px rgba(0,0,0,0.45)',
-                          transform: 'translateY(-1px)',
+                          transform: 'translateY(calc(-50% - 4px))',
                         }}
                       >
                         {language === 'fr' ? 'RECOLTER' : 'HARVEST'}
@@ -833,44 +903,6 @@ export default function GreenhousePhase({
                   );
                 })}
                 </div>
-              </div>
-            </div>
-
-            <div
-              className="absolute rounded-[22px] bg-[rgba(13,32,16,0.72)] px-4 py-3 text-center shadow-[0_12px_20px_rgba(8,19,8,0.22)]"
-              style={{
-                left: UI.plotInfo.x,
-                top: UI.plotInfo.y,
-                width: UI.plotInfo.w,
-                height: UI.plotInfo.h,
-              }}
-            >
-              <div
-                className="text-[15px] text-[#F4FFE1]"
-                style={{ fontFamily: 'Fredoka, sans-serif', fontWeight: 700 }}
-              >
-                {selectedPlotLabel}
-              </div>
-              <div
-                className="mt-1 text-[12px] text-[#D4EABF]"
-                style={{ fontFamily: 'Fredoka, sans-serif', fontWeight: 600 }}
-              >
-                {selectedPlot.crop
-                  ? selectedPlotVisual.isReady
-                    ? language === 'fr'
-                      ? 'Pret a etre recolte.'
-                      : 'Ready to harvest.'
-                    : formatRemainingTime(
-                        selectedPlotVisual.remainingMs,
-                        language === 'fr' ? 'fr' : 'en'
-                      )
-                  : inventoryPlotLabel
-                    ? language === 'fr'
-                      ? `${inventoryPlotLabel} attend le choix d'une graine.`
-                      : `${inventoryPlotLabel} is waiting for a seed choice.`
-                    : language === 'fr'
-                      ? 'Choisis une parcelle vide puis appuie sur Plant.'
-                      : 'Choose an empty plot, then press Plant.'}
               </div>
             </div>
 
