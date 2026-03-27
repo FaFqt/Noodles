@@ -3,6 +3,13 @@ import { motion } from 'motion/react';
 import ResponsiveGameCanvas from './ResponsiveGameCanvas';
 import GameToolbar from './GameToolbar';
 import { useLanguage } from '../context/LanguageContext';
+import {
+  GREENHOUSE_GROWTH_DURATION_MS,
+  GREENHOUSE_INGREDIENTS,
+  TEST_GREENHOUSE_SEED_STOCK,
+  type GreenhouseIngredientId,
+  type IngredientRarity,
+} from '../data/market';
 import greenhouseBackground from '../../assets/screens/GreenhouseScreen.png';
 import plantButtonAsset from '../../assets/ui/PlantButton.svg';
 import harvestButtonAsset from '../../assets/ui/HarvestButton.svg';
@@ -10,8 +17,7 @@ import frameAsset from '../../assets/ui/Cadre.png';
 import seedNumAsset from '../../assets/ui/SeedNum.svg';
 import rareAsset from '../../assets/ui/Rare.svg';
 import epicAsset from '../../assets/ui/Epic.svg';
-import cornRewardAsset from '../../assets/rewards/Corn.png';
-import dragonPepperRewardAsset from '../../assets/rewards/DragonPepper.png';
+import legendaryAsset from '../../assets/ui/Legendary.svg';
 import seedPhaseAsset from '../../assets/greenhouse/seed_phase.png';
 import sproutAsset from '../../assets/greenhouse/sprout.png';
 import sproutPhaseTwoAsset from '../../assets/greenhouse/sprout_phase2.png';
@@ -24,7 +30,7 @@ const STORAGE_KEY = 'greenhouse-ui-state-v1';
 const SCALE = 1;
 const s = (value: number) => value * SCALE;
 
-export type GreenhouseCrop = 'corn' | 'dragonpepper';
+export type GreenhouseCrop = GreenhouseIngredientId;
 
 type PlotStage = 'empty' | 'seed' | 'sprout' | 'sprout2' | 'ready';
 
@@ -34,10 +40,7 @@ interface GreenhousePlotState {
   plantedAt: number | null;
 }
 
-interface SeedInventory {
-  corn: number;
-  dragonpepper: number;
-}
+type SeedInventory = Record<GreenhouseCrop, number>;
 
 interface GreenhousePhaseProps {
   onBack?: () => void;
@@ -49,21 +52,13 @@ interface GreenhousePhaseProps {
   initialSeedInventory?: SeedInventory;
 }
 
-const GROWTH_DURATION_MS: Record<GreenhouseCrop, number> = {
-  corn: 10 * 60 * 1000,
-  dragonpepper: 25 * 60 * 1000,
-};
-
 const INITIAL_PLOTS: GreenhousePlotState[] = Array.from({ length: 4 }, (_, index) => ({
   id: `plot-${index + 1}`,
   crop: null,
   plantedAt: null,
 }));
 
-const DEFAULT_SEEDS: SeedInventory = {
-  corn: 2,
-  dragonpepper: 2,
-};
+const DEFAULT_SEEDS: SeedInventory = TEST_GREENHOUSE_SEED_STOCK;
 
 const UI = {
   titleCard: { x: s(44), y: s(92), w: s(342), h: s(88) },
@@ -71,7 +66,7 @@ const UI = {
     w: s(160),
     h: s(130),
     soilX: s(18),
-    soilY: s(28),
+    soilY: s(20),
     soilW: s(124),
     soilH: s(84),
     imageW: s(104),
@@ -90,10 +85,10 @@ const UI = {
     actionH: s(22),
   },
   plotLayout: [
-    { id: 'plot-1', x: s(45), y: s(310) },
+    { id: 'plot-1', x: s(50), y: s(310) },
     { id: 'plot-2', x: s(210), y: s(310) },
     { id: 'plot-3', x: s(40), y: s(440) },
-    { id: 'plot-4', x: s(222), y: s(440) },
+    { id: 'plot-4', x: s(220), y: s(440) },
   ],
   inventoryPanel: { x: s(28), y: s(506), w: s(374), h: s(170) },
   inventoryCards: {
@@ -102,7 +97,7 @@ const UI = {
     railW: s(354),
     railH: s(104),
     gap: s(8),
-    cardW: s(126),
+    cardW: s(100),
     cardH: s(100),
     badgeH: s(22),
     imageY: s(12),
@@ -149,10 +144,9 @@ function readStoredGreenhouseState(initialSeedInventory: SeedInventory) {
       const storedPlot = parsed.plots?.find((item) => item.id === plot.id);
       return {
         id: plot.id,
-        crop:
-          storedPlot?.crop === 'corn' || storedPlot?.crop === 'dragonpepper'
-            ? storedPlot.crop
-            : null,
+        crop: GREENHOUSE_INGREDIENTS.some((ingredient) => ingredient.id === storedPlot?.crop)
+          ? (storedPlot?.crop as GreenhouseCrop)
+          : null,
         plantedAt: Number.isFinite(storedPlot?.plantedAt)
           ? Number(storedPlot?.plantedAt)
           : null,
@@ -161,14 +155,15 @@ function readStoredGreenhouseState(initialSeedInventory: SeedInventory) {
 
     return {
       plots,
-      seeds: {
-        corn: Number.isFinite(parsed.seeds?.corn)
-          ? Math.max(0, Number(parsed.seeds?.corn))
-          : initialSeedInventory.corn,
-        dragonpepper: Number.isFinite(parsed.seeds?.dragonpepper)
-          ? Math.max(0, Number(parsed.seeds?.dragonpepper))
-          : initialSeedInventory.dragonpepper,
-      },
+      seeds: GREENHOUSE_INGREDIENTS.reduce((accumulator, ingredient) => {
+        const rawCount = parsed.seeds?.[ingredient.id];
+        return {
+          ...accumulator,
+          [ingredient.id]: Number.isFinite(rawCount)
+            ? Math.max(0, Number(rawCount))
+            : initialSeedInventory[ingredient.id],
+        };
+      }, {} as SeedInventory),
     };
   } catch {
     return {
@@ -192,6 +187,25 @@ function formatRemainingTime(ms: number, language: 'fr' | 'en') {
     : `${minutes}m ${seconds.toString().padStart(2, '0')}s left`;
 }
 
+function getCropDisplayName(crop: GreenhouseCrop, language: 'fr' | 'en') {
+  const cropData = GREENHOUSE_INGREDIENTS.find((ingredient) => ingredient.id === crop);
+  if (!cropData) return crop;
+  return language === 'fr' ? cropData.name.fr : cropData.name.en;
+}
+
+function getRarityBadge(rarity: IngredientRarity) {
+  switch (rarity) {
+    case 'rare':
+      return rareAsset;
+    case 'epic':
+      return epicAsset;
+    case 'legendary':
+      return legendaryAsset;
+    default:
+      return null;
+  }
+}
+
 function getPlotVisual(plot: GreenhousePlotState, now: number) {
   if (!plot.crop || !plot.plantedAt) {
     return {
@@ -203,7 +217,7 @@ function getPlotVisual(plot: GreenhousePlotState, now: number) {
     };
   }
 
-  const totalDuration = GROWTH_DURATION_MS[plot.crop];
+  const totalDuration = GREENHOUSE_GROWTH_DURATION_MS[plot.crop];
   const elapsed = Math.max(0, now - plot.plantedAt);
   const progress = Math.max(0, Math.min(1, elapsed / totalDuration));
   const remainingMs = Math.max(0, totalDuration - elapsed);
@@ -211,7 +225,13 @@ function getPlotVisual(plot: GreenhousePlotState, now: number) {
   if (progress >= 1) {
     return {
       stage: 'ready' as PlotStage,
-      image: plot.crop === 'corn' ? cornReadyAsset : dragonPepperReadyAsset,
+      image:
+        plot.crop === 'corn'
+          ? cornReadyAsset
+          : plot.crop === 'dragonpepper'
+            ? dragonPepperReadyAsset
+            : GREENHOUSE_INGREDIENTS.find((ingredient) => ingredient.id === plot.crop)?.image ??
+              null,
       progress,
       remainingMs,
       isReady: true,
@@ -296,9 +316,9 @@ export default function GreenhousePhase({
   useEffect(() => {
     if (hasAppliedSeedTopUpRef.current) return;
 
-    const needsTopUp =
-      greenhouseState.seeds.corn < initialSeedInventory.corn ||
-      greenhouseState.seeds.dragonpepper < initialSeedInventory.dragonpepper;
+    const needsTopUp = GREENHOUSE_INGREDIENTS.some(
+      (ingredient) => greenhouseState.seeds[ingredient.id] < initialSeedInventory[ingredient.id]
+    );
 
     if (!needsTopUp) {
       hasAppliedSeedTopUpRef.current = true;
@@ -308,13 +328,13 @@ export default function GreenhousePhase({
     hasAppliedSeedTopUpRef.current = true;
     setGreenhouseState((prev) => ({
       ...prev,
-      seeds: {
-        corn: Math.max(prev.seeds.corn, initialSeedInventory.corn),
-        dragonpepper: Math.max(
-          prev.seeds.dragonpepper,
-          initialSeedInventory.dragonpepper
-        ),
-      },
+      seeds: GREENHOUSE_INGREDIENTS.reduce((accumulator, ingredient) => {
+        accumulator[ingredient.id] = Math.max(
+          prev.seeds[ingredient.id],
+          initialSeedInventory[ingredient.id]
+        );
+        return accumulator;
+      }, {} as SeedInventory),
     }));
     setStatusMessage(
       language === 'fr'
@@ -322,10 +342,8 @@ export default function GreenhousePhase({
         : 'Test seed stock replenished.'
     );
   }, [
-    greenhouseState.seeds.corn,
-    greenhouseState.seeds.dragonpepper,
-    initialSeedInventory.corn,
-    initialSeedInventory.dragonpepper,
+    greenhouseState.seeds,
+    initialSeedInventory,
     language,
   ]);
 
@@ -349,31 +367,25 @@ export default function GreenhousePhase({
   const inventoryPlot =
     greenhouseState.plots.find((plot) => plot.id === inventoryPlotId) ?? null;
 
-  const cropCards: Array<{
-    crop: GreenhouseCrop;
-    label: string;
-    rarityLabel: string;
-    count: number;
-    image: string;
-    badge: string;
-  }> = [
-    {
-      crop: 'corn',
-      label: language === 'fr' ? 'Mais' : 'Corn',
-      rarityLabel: language === 'fr' ? 'Rare' : 'Rare',
-      count: greenhouseState.seeds.corn,
-      image: cornRewardAsset,
-      badge: rareAsset,
-    },
-    {
-      crop: 'dragonpepper',
-      label: 'DragonPepper',
-      rarityLabel: language === 'fr' ? 'Epic' : 'Epic',
-      count: greenhouseState.seeds.dragonpepper,
-      image: dragonPepperRewardAsset,
-      badge: epicAsset,
-    },
-  ];
+  const cropCards = GREENHOUSE_INGREDIENTS.map((ingredient) => ({
+    crop: ingredient.id,
+    label: language === 'fr' ? ingredient.name.fr : ingredient.name.en,
+    rarityLabel:
+      ingredient.rarity === 'common'
+        ? language === 'fr'
+          ? 'Commun'
+          : 'Common'
+        : ingredient.rarity === 'rare'
+          ? 'Rare'
+          : ingredient.rarity === 'epic'
+            ? 'Epic'
+            : language === 'fr'
+              ? 'Legendaire'
+              : 'Legendary',
+    count: greenhouseState.seeds[ingredient.id],
+    image: ingredient.image,
+    badge: getRarityBadge(ingredient.rarity),
+  }));
 
   const selectedPlotLabel = `${
     language === 'fr' ? 'Parcelle' : 'Plot'
@@ -409,14 +421,9 @@ export default function GreenhousePhase({
       ),
     }));
     setInventoryPlotId(null);
+    const cropLabel = getCropDisplayName(crop, language === 'fr' ? 'fr' : 'en');
     setStatusMessage(
-      crop === 'corn'
-        ? language === 'fr'
-          ? 'Mais plante'
-          : 'Corn planted'
-        : language === 'fr'
-          ? 'DragonPepper plante'
-          : 'DragonPepper planted'
+      language === 'fr' ? `${cropLabel} plante` : `${cropLabel} planted`
     );
   };
 
@@ -441,14 +448,14 @@ export default function GreenhousePhase({
           : plot
       ),
     }));
+    const cropLabel = getCropDisplayName(
+      harvestedCrop,
+      language === 'fr' ? 'fr' : 'en'
+    );
     setStatusMessage(
-      harvestedCrop === 'corn'
-        ? language === 'fr'
-          ? 'Mais recolte, +1 graine'
-          : 'Corn harvested, +1 seed'
-        : language === 'fr'
-          ? 'DragonPepper recolte, +1 graine'
-          : 'DragonPepper harvested, +1 seed'
+      language === 'fr'
+        ? `${cropLabel} recolte, +1 graine`
+        : `${cropLabel} harvested, +1 seed`
     );
   };
 
@@ -508,15 +515,7 @@ export default function GreenhousePhase({
             {plotCards.map(({ id, x, y, plot, visual }) => {
               const isSelected = selectedPlotId === id;
               const cropName =
-                plot.crop === 'corn'
-                  ? language === 'fr'
-                    ? 'Mais'
-                    : 'Corn'
-                  : plot.crop === 'dragonpepper'
-                    ? 'DragonPepper'
-                    : language === 'fr'
-                      ? 'Vide'
-                      : 'Empty';
+                plot.crop ? getCropDisplayName(plot.crop, language === 'fr' ? 'fr' : 'en') : '';
 
               return (
                 <motion.button
@@ -794,13 +793,15 @@ export default function GreenhousePhase({
                         }}
                         draggable={false}
                       />
-                      <img
-                        src={cropCard.badge}
-                        alt={cropCard.rarityLabel}
-                        className="absolute right-[10px] top-[10px] w-auto"
-                        style={{ height: UI.inventoryCards.badgeH }}
-                        draggable={false}
-                      />
+                      {cropCard.badge ? (
+                        <img
+                          src={cropCard.badge}
+                          alt={cropCard.rarityLabel}
+                          className="absolute right-[10px] top-[10px] w-auto"
+                          style={{ height: UI.inventoryCards.badgeH }}
+                          draggable={false}
+                        />
+                      ) : null}
                       <div
                         className="absolute bottom-[30px] left-0 right-0 text-center text-[12px] text-[#FFF7E8]"
                         style={{ fontFamily: 'Fredoka, sans-serif', fontWeight: 700 }}
