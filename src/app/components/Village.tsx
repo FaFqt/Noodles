@@ -221,6 +221,8 @@ export function Village({
     // Navigate to the building
     if (activeBuilding.id === 'ramen') {
       onSelectBuilding('restaurant');
+    } else if (activeBuilding.id === 'greenhouse') {
+      onSelectBuilding('greenhouse');
     } else {
       showToast(`${t('openRestaurant')} 🎉`);
     }

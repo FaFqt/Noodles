@@ -7,6 +7,7 @@ import { Village } from './components/Village';
 import { CookingPhase } from './components/CookingPhase';
 import BrothStirPhase from './components/BrothStirPhase';
 import ServicePhase from './components/ServicePhase';
+import GreenhousePhase from './components/GreenhousePhase';
 import SatisfactionScreen, {
   computeSatisfactionResult,
 } from './components/SatisfactionScreen';
@@ -59,6 +60,7 @@ type GameState =
   | 'cartridgeLoading'
   | 'cartridgeConnect'
   | 'village'
+  | 'greenhouse'
   | 'restaurant'
   | 'recipeSelection'
   | 'cooking'
@@ -94,6 +96,7 @@ const WALLET_REWARD_STATE_STORAGE_KEY_PREFIX = 'walletRewardState';
 const WALLET_PROGRESS_STATE_STORAGE_KEY_PREFIX = 'walletProgressState';
 const DEV_PROGRESS_RESET_ENABLED =
   import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEV_RESET === 'true';
+const GREENHOUSE_UI_TEST_ENABLED = true;
 const INITIAL_PLAYER_STATS = {
   name: 'Bento-chan',
   level: 1,
@@ -407,6 +410,8 @@ export default function App() {
     restaurantRewardFeaturesUnlocked ||
     playerStats.level >= 2 ||
     claimedLevelRewardIds.includes('level-2-tipjar');
+  const isGreenhouseAccessible =
+    GREENHOUSE_UI_TEST_ENABLED || greenhouseUnlocked || playerStats.level >= 5;
   const canSyncProgressOnDojo =
     Boolean(cartridgeWallet) &&
     isCartridgeConnected &&
@@ -827,6 +832,11 @@ export default function App() {
   const handleSelectBuilding = (building: string) => {
     if (building === 'restaurant') {
       setGameState('restaurant');
+      return;
+    }
+
+    if (building === 'greenhouse') {
+      setGameState('greenhouse');
     }
   };
 
@@ -882,6 +892,10 @@ export default function App() {
       return;
     }
     setGameState('recipeSelection');
+  };
+
+  const handleExitGreenhouse = () => {
+    setGameState('village');
   };
 
   const handleExitRestaurant = () => {
@@ -1504,7 +1518,7 @@ export default function App() {
             {gameState === 'village' && (
               <Village
                 onSelectBuilding={handleSelectBuilding}
-                greenhouseUnlocked={greenhouseUnlocked}
+                greenhouseUnlocked={isGreenhouseAccessible}
                 playerWallet={playerWallet}
                 isWalletConnected={isCartridgeConnected}
                 onOpenWalletProfile={handleOpenWalletProfile}
@@ -1518,6 +1532,24 @@ export default function App() {
                   level: playerStats.level,
                 }}
               />
+            )}
+
+            {gameState === 'greenhouse' && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="h-full w-full"
+              >
+                <GreenhousePhase
+                  onBack={handleExitGreenhouse}
+                  playerName={displayPlayerName}
+                  coins={playerStats.coins}
+                  level={playerStats.level}
+                  xp={playerStats.xp}
+                  xpToNext={playerStats.xpToNext}
+                />
+              </motion.div>
             )}
 
             {gameState === 'restaurant' && (

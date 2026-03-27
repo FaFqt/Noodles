@@ -98,8 +98,8 @@ const textStyle: React.CSSProperties = {
   fontFamily: "Fredoka, sans-serif",
   fontWeight: 700,
   color: "#FFFFFF",
-  WebkitTextStroke: "1px #4F210E",
-  textShadow: "0 1px 0 rgba(79,33,14,0.35)",
+  textShadow:
+    "0 1px 0 rgba(79,33,14,0.24), 0 0 4px rgba(79,33,14,0.12)",
 };
 
 export default function GameToolbar({
@@ -214,7 +214,6 @@ export default function GameToolbar({
           className="absolute -translate-x-1/2 text-center leading-none text-[#FFF3D0]"
           style={{
             ...textStyle,
-            WebkitTextStroke: "1px #9F531F",
             textShadow: "none",
             left: UI.xpText.x,
             top: UI.xpText.y,
@@ -242,12 +241,11 @@ export default function GameToolbar({
           />
           <div
             className="absolute inset-0 flex items-center justify-center leading-none"
-            style={{
-              ...textStyle,
-              WebkitTextStroke: "1px #9F531F",
-              fontSize: UI.levelStar.fontSize,
-              paddingTop: 3,
-            }}
+          style={{
+            ...textStyle,
+            fontSize: UI.levelStar.fontSize,
+            paddingTop: 3,
+          }}
           >
             {level}
           </div>
