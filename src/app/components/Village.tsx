@@ -12,6 +12,7 @@ const DESIGN_HEIGHT = 780;
 interface VillageProps {
   onSelectBuilding: (building: string) => void;
   greenhouseUnlocked?: boolean;
+  marketUnlocked?: boolean;
   playerWallet?: PlayerWallet | null;
   isWalletConnected?: boolean;
   onOpenWalletProfile?: () => Promise<boolean> | boolean;
@@ -169,6 +170,7 @@ function shortenAddress(address: string) {
 export function Village({
   onSelectBuilding,
   greenhouseUnlocked = false,
+  marketUnlocked = false,
   playerWallet,
   isWalletConnected = false,
   onOpenWalletProfile,
@@ -199,7 +201,9 @@ export function Village({
   const visibleBuildings = BUILDINGS.map((building) =>
     building.id === 'greenhouse'
       ? { ...building, locked: !greenhouseUnlocked }
-      : building
+      : building.id === 'market'
+        ? { ...building, locked: !marketUnlocked }
+        : building
   );
 
   const showToast = useCallback((msg: string) => {
@@ -221,6 +225,8 @@ export function Village({
     // Navigate to the building
     if (activeBuilding.id === 'ramen') {
       onSelectBuilding('restaurant');
+    } else if (activeBuilding.id === 'market') {
+      onSelectBuilding('market');
     } else if (activeBuilding.id === 'greenhouse') {
       onSelectBuilding('greenhouse');
     } else {

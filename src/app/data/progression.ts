@@ -16,9 +16,10 @@ export interface PlayerStats {
 
 export type LevelRewardType =
   | "tipjar_unlock"
+  | "tipjar_tokens"
   | "seed"
   | "greenhouse_unlock"
-  | "coins";
+  | "market_unlock";
 
 export type SeedRewardCrop = "corn" | "dragonpepper" | "moonherb";
 
@@ -31,7 +32,6 @@ export interface LevelRewardDefinition {
   descriptionFr: string;
   descriptionEn: string;
   image: string;
-  coinsBonus?: number;
   tipJarTokens?: number;
   seedCrop?: SeedRewardCrop;
   seedAmount?: number;
@@ -48,32 +48,43 @@ export const LEVEL_REWARDS: LevelRewardDefinition[] = [
     type: "tipjar_unlock",
     titleFr: "Chat pourboire débloqué",
     titleEn: "Tip Jar unlocked",
-    descriptionFr: "Le chat pourboire apparaît au restaurant et offre 2 tokens.",
-    descriptionEn: "The Tip Jar appears in the restaurant and grants 2 tokens.",
+    descriptionFr: "Le chat pourboire apparaît au restaurant et offre 12 tokens.",
+    descriptionEn: "The Tip Jar appears in the restaurant and grants 12 tokens.",
     image: rewardTipJar,
-    tipJarTokens: 2,
+    tipJarTokens: 12,
   },
   {
-    id: "level-3-tokens",
+    id: "level-3-tipjar-tokens",
     level: 3,
-    type: "coins",
-    titleFr: "10 Noods bonus",
-    titleEn: "10 bonus Noods",
-    descriptionFr: "10 Noods sont ajoutes directement a ton solde.",
-    descriptionEn: "10 Noods are added directly to your balance.",
+    type: "tipjar_tokens",
+    titleFr: "14 tokens pour le Tip Jar",
+    titleEn: "14 Tip Jar tokens",
+    descriptionFr: "14 tokens sont ajoutes au chat pourboire.",
+    descriptionEn: "14 tokens are added to the Tip Jar.",
     image: rewardToken,
-    coinsBonus: 10,
+    tipJarTokens: 14,
   },
   {
-    id: "level-4-tokens",
+    id: "level-4-tipjar-tokens",
     level: 4,
-    type: "coins",
-    titleFr: "10 tokens bonus",
-    titleEn: "10 bonus tokens",
-    descriptionFr: "Encore 10 tokens ajoutés au chat pourboire.",
-    descriptionEn: "Another 10 tokens are added to the Tip Jar.",
+    type: "tipjar_tokens",
+    titleFr: "16 tokens pour le Tip Jar",
+    titleEn: "16 Tip Jar tokens",
+    descriptionFr: "16 tokens sont ajoutes au chat pourboire.",
+    descriptionEn: "16 tokens are added to the Tip Jar.",
     image: rewardToken,
-    tipJarTokens: 10,
+    tipJarTokens: 16,
+  },
+  {
+    id: "level-5-tipjar-tokens",
+    level: 5,
+    type: "tipjar_tokens",
+    titleFr: "18 tokens pour le Tip Jar",
+    titleEn: "18 Tip Jar tokens",
+    descriptionFr: "18 tokens sont ajoutes au chat pourboire.",
+    descriptionEn: "18 tokens are added to the Tip Jar.",
+    image: rewardToken,
+    tipJarTokens: 18,
   },
   {
     id: "level-5-corn-seed",
@@ -88,6 +99,17 @@ export const LEVEL_REWARDS: LevelRewardDefinition[] = [
     seedAmount: 1,
   },
   {
+    id: "level-6-tipjar-tokens",
+    level: 6,
+    type: "tipjar_tokens",
+    titleFr: "20 tokens pour le Tip Jar",
+    titleEn: "20 Tip Jar tokens",
+    descriptionFr: "20 tokens sont ajoutes au chat pourboire.",
+    descriptionEn: "20 tokens are added to the Tip Jar.",
+    image: rewardToken,
+    tipJarTokens: 20,
+  },
+  {
     id: "level-6-greenhouse",
     level: 6,
     type: "greenhouse_unlock",
@@ -96,6 +118,50 @@ export const LEVEL_REWARDS: LevelRewardDefinition[] = [
     descriptionFr: "La serre devient accessible dans le village.",
     descriptionEn: "The greenhouse becomes accessible in the village.",
     image: rewardMoonHerb,
+  },
+  {
+    id: "level-7-tipjar-tokens",
+    level: 7,
+    type: "tipjar_tokens",
+    titleFr: "22 tokens pour le Tip Jar",
+    titleEn: "22 Tip Jar tokens",
+    descriptionFr: "22 tokens sont ajoutes au chat pourboire.",
+    descriptionEn: "22 tokens are added to the Tip Jar.",
+    image: rewardToken,
+    tipJarTokens: 22,
+  },
+  {
+    id: "level-7-dragonpepper-seed",
+    level: 7,
+    type: "seed",
+    titleFr: "1 graine de Dragon Pepper offerte",
+    titleEn: "1 Dragon Pepper seed granted",
+    descriptionFr: "1 graine de Dragon Pepper est ajoutee a ton inventaire.",
+    descriptionEn: "1 Dragon Pepper seed is added to your inventory.",
+    image: seedDragonPepper,
+    seedCrop: "dragonpepper",
+    seedAmount: 1,
+  },
+  {
+    id: "level-8-tipjar-tokens",
+    level: 8,
+    type: "tipjar_tokens",
+    titleFr: "24 tokens pour le Tip Jar",
+    titleEn: "24 Tip Jar tokens",
+    descriptionFr: "24 tokens sont ajoutes au chat pourboire.",
+    descriptionEn: "24 tokens are added to the Tip Jar.",
+    image: rewardToken,
+    tipJarTokens: 24,
+  },
+  {
+    id: "level-8-market",
+    level: 8,
+    type: "market_unlock",
+    titleFr: "Marche debloque",
+    titleEn: "Market unlocked",
+    descriptionFr: "Le marche devient accessible dans le village.",
+    descriptionEn: "The market becomes accessible in the village.",
+    image: rewardToken,
   },
 ];
 

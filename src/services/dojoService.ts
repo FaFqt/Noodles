@@ -475,7 +475,7 @@ export async function getPlayerSnapshotOnDojo(params: {
 
 export async function claimFeatureUnlockOnDojo(params: {
   wallet: any;
-  feature: 'tip_jar' | 'greenhouse';
+  feature: 'tip_jar' | 'greenhouse' | 'market';
 }): Promise<ClaimUnlockResult> {
   if (!DOJO_UNLOCK_SYSTEM_ADDRESS || DOJO_UNLOCK_SYSTEM_ADDRESS === '0x0') {
     return {
@@ -487,7 +487,9 @@ export async function claimFeatureUnlockOnDojo(params: {
   const entrypoint =
     params.feature === 'tip_jar'
       ? 'claim_tip_jar_unlock'
-      : 'claim_greenhouse_unlock';
+      : params.feature === 'greenhouse'
+        ? 'claim_greenhouse_unlock'
+        : 'claim_market_unlock';
 
   try {
     const tx = await params.wallet.execute([

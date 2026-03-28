@@ -8,6 +8,7 @@ import { CookingPhase } from './components/CookingPhase';
 import BrothStirPhase from './components/BrothStirPhase';
 import ServicePhase from './components/ServicePhase';
 import GreenhousePhase from './components/GreenhousePhase';
+import MarketPhase from './components/MarketPhase';
 import SatisfactionScreen, {
   computeSatisfactionResult,
 } from './components/SatisfactionScreen';
@@ -41,6 +42,11 @@ import {
   type LevelRewardDefinition,
   type SeedRewardCrop,
 } from './data/progression';
+import {
+  EMPTY_GREENHOUSE_SEED_STOCK,
+  EMPTY_PLAYER_MARKET_INGREDIENT_INVENTORY,
+  MARKET_INGREDIENT_IDS,
+} from './data/market';
 import { RECIPES, getRecipeById, SERVICES_PER_DAY } from './data/recipes';
 
 // Assets ramen
@@ -61,6 +67,7 @@ type GameState =
   | 'cartridgeConnect'
   | 'village'
   | 'greenhouse'
+  | 'market'
   | 'restaurant'
   | 'recipeSelection'
   | 'cooking'
@@ -96,7 +103,6 @@ const WALLET_REWARD_STATE_STORAGE_KEY_PREFIX = 'walletRewardState';
 const WALLET_PROGRESS_STATE_STORAGE_KEY_PREFIX = 'walletProgressState';
 const DEV_PROGRESS_RESET_ENABLED =
   import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEV_RESET === 'true';
-const GREENHOUSE_UI_TEST_ENABLED = true;
 const INITIAL_PLAYER_STATS = {
   name: 'Bento-chan',
   level: 1,
@@ -111,6 +117,9 @@ const INITIAL_PLAYER_INVENTORY = {
   dragonPepperSeed: 0,
   moonHerbSeed: 0,
   crystalSalt: 0,
+};
+const INITIAL_PLAYER_MARKET_INVENTORY = {
+  ...EMPTY_PLAYER_MARKET_INGREDIENT_INVENTORY,
 };
 
 function readKnownDojoPlayers() {
@@ -135,9 +144,11 @@ interface WalletRewardState {
   claimedLevelRewardIds: string[];
   restaurantRewardFeaturesUnlocked: boolean;
   greenhouseUnlocked: boolean;
+  marketUnlocked: boolean;
   tipJarTokensAvailable: number;
   tipJarCollected: boolean;
   inventory: typeof INITIAL_PLAYER_INVENTORY;
+  marketInventory: typeof INITIAL_PLAYER_MARKET_INVENTORY;
 }
 
 interface WalletProgressState {
@@ -172,6 +183,7 @@ function readWalletRewardState(walletAddress: string): WalletRewardState | null 
         parsed.restaurantRewardFeaturesUnlocked
       ),
       greenhouseUnlocked: Boolean(parsed.greenhouseUnlocked),
+      marketUnlocked: Boolean(parsed.marketUnlocked),
       tipJarTokensAvailable: Number.isFinite(parsed.tipJarTokensAvailable)
         ? Math.max(0, Number(parsed.tipJarTokensAvailable))
         : 0,
@@ -190,6 +202,12 @@ function readWalletRewardState(walletAddress: string): WalletRewardState | null 
           ? Math.max(0, Number(parsed.inventory?.crystalSalt))
           : 0,
       },
+      marketInventory: MARKET_INGREDIENT_IDS.reduce((accumulator, ingredientId) => {
+        accumulator[ingredientId] = Number.isFinite(parsed.marketInventory?.[ingredientId])
+          ? Math.max(0, Number(parsed.marketInventory?.[ingredientId]))
+          : INITIAL_PLAYER_MARKET_INVENTORY[ingredientId];
+        return accumulator;
+      }, {} as typeof INITIAL_PLAYER_MARKET_INVENTORY),
     };
   } catch {
     return null;
@@ -279,6 +297,37 @@ function incrementInventoryValue(
   };
 }
 
+function getGreenhouseSeedInventoryFromPlayerInventory(
+  inventory: typeof INITIAL_PLAYER_INVENTORY
+) {
+  return {
+    ...EMPTY_GREENHOUSE_SEED_STOCK,
+    corn: inventory.cornSeed,
+    dragonpepper: inventory.dragonPepperSeed,
+    moonherb: inventory.moonHerbSeed,
+  };
+}
+
+function syncRewardSeedInventoryFromGreenhouse(
+  inventory: typeof INITIAL_PLAYER_INVENTORY,
+  greenhouseInventory: typeof EMPTY_GREENHOUSE_SEED_STOCK
+) {
+  if (
+    inventory.cornSeed === greenhouseInventory.corn &&
+    inventory.dragonPepperSeed === greenhouseInventory.dragonpepper &&
+    inventory.moonHerbSeed === greenhouseInventory.moonherb
+  ) {
+    return inventory;
+  }
+
+  return {
+    ...inventory,
+    cornSeed: greenhouseInventory.corn,
+    dragonPepperSeed: greenhouseInventory.dragonpepper,
+    moonHerbSeed: greenhouseInventory.moonherb,
+  };
+}
+
 function hasSameSyncedProgress(
   left: Pick<typeof INITIAL_PLAYER_STATS, 'level' | 'xp' | 'xpToNext' | 'coins'>,
   right: Pick<typeof INITIAL_PLAYER_STATS, 'level' | 'xp' | 'xpToNext' | 'coins'>
@@ -363,7 +412,11 @@ export default function App() {
   const [restaurantRewardFeaturesUnlocked, setRestaurantRewardFeaturesUnlocked] =
     useState(false);
   const [greenhouseUnlocked, setGreenhouseUnlocked] = useState(false);
+  const [marketUnlocked, setMarketUnlocked] = useState(false);
   const [playerInventory, setPlayerInventory] = useState(INITIAL_PLAYER_INVENTORY);
+  const [playerMarketInventory, setPlayerMarketInventory] = useState(
+    INITIAL_PLAYER_MARKET_INVENTORY
+  );
   const [claimedLevelRewardIds, setClaimedLevelRewardIds] = useState<string[]>([]);
   const [pendingLevelRewards, setPendingLevelRewards] = useState<
     { reward: LevelRewardDefinition; level: number }[]
@@ -411,7 +464,9 @@ export default function App() {
     playerStats.level >= 2 ||
     claimedLevelRewardIds.includes('level-2-tipjar');
   const isGreenhouseAccessible =
-    GREENHOUSE_UI_TEST_ENABLED || greenhouseUnlocked || playerStats.level >= 5;
+    greenhouseUnlocked || claimedLevelRewardIds.includes('level-6-greenhouse');
+  const isMarketAccessible =
+    marketUnlocked || claimedLevelRewardIds.includes('level-8-market');
   const canSyncProgressOnDojo =
     Boolean(cartridgeWallet) &&
     isCartridgeConnected &&
@@ -435,7 +490,12 @@ export default function App() {
         (onchainSnapshot?.progress.level ?? playerStats.level) >= 2;
       const inferredGreenhouseUnlocked =
         Boolean(storedState?.greenhouseUnlocked) ||
-        Boolean(onchainSnapshot?.unlocks?.greenhouseUnlocked);
+        Boolean(onchainSnapshot?.unlocks?.greenhouseUnlocked) ||
+        Boolean(storedState?.claimedLevelRewardIds.includes('level-6-greenhouse'));
+      const inferredMarketUnlocked =
+        Boolean(storedState?.marketUnlocked) ||
+        Boolean(onchainSnapshot?.unlocks?.marketUnlocked) ||
+        Boolean(storedState?.claimedLevelRewardIds.includes('level-8-market'));
       const nextInventory = {
         cornSeed: Math.max(
           storedState?.inventory.cornSeed ?? 0,
@@ -458,9 +518,13 @@ export default function App() {
       setClaimedLevelRewardIds(storedState?.claimedLevelRewardIds ?? []);
       setRestaurantRewardFeaturesUnlocked(inferredTipJarUnlocked);
       setGreenhouseUnlocked(inferredGreenhouseUnlocked);
+      setMarketUnlocked(inferredMarketUnlocked);
       setTipJarTokensAvailable(storedState?.tipJarTokensAvailable ?? 0);
       setTipJarCollected(storedState?.tipJarCollected ?? false);
       setPlayerInventory(nextInventory);
+      setPlayerMarketInventory(
+        storedState?.marketInventory ?? INITIAL_PLAYER_MARKET_INVENTORY
+      );
       setPendingLevelRewards([]);
     },
     [playerStats.level]
@@ -837,6 +901,11 @@ export default function App() {
 
     if (building === 'greenhouse') {
       setGameState('greenhouse');
+      return;
+    }
+
+    if (building === 'market') {
+      setGameState('market');
     }
   };
 
@@ -875,7 +944,9 @@ export default function App() {
     setTipJarCollected(false);
     setRestaurantRewardFeaturesUnlocked(false);
     setGreenhouseUnlocked(false);
+    setMarketUnlocked(false);
     setPlayerInventory(INITIAL_PLAYER_INVENTORY);
+    setPlayerMarketInventory(INITIAL_PLAYER_MARKET_INVENTORY);
     setClaimedLevelRewardIds([]);
     setPendingLevelRewards([]);
     setHasPendingProgressSync(false);
@@ -895,6 +966,10 @@ export default function App() {
   };
 
   const handleExitGreenhouse = () => {
+    setGameState('village');
+  };
+
+  const handleExitMarket = () => {
     setGameState('village');
   };
 
@@ -1119,14 +1194,6 @@ export default function App() {
         setTipJarTokensAvailable((prev) => prev + reward.tipJarTokens!);
       }
 
-      if (reward.type === 'coins' && reward.coinsBonus) {
-        setPlayerStats((prev) => ({
-          ...prev,
-          coins: prev.coins + reward.coinsBonus,
-        }));
-        queueProgressSync(`reward_${reward.id}`);
-      }
-
       if (reward.type === 'seed' && reward.seedCrop && reward.seedAmount) {
         setPlayerInventory((prev) =>
           incrementInventoryValue(prev, reward.seedCrop!, reward.seedAmount!)
@@ -1159,6 +1226,23 @@ export default function App() {
           if (result.status === 'failed') {
             setWalletSyncMessage(
               `La sync onchain du unlock greenhouse a echoue: ${result.message}`
+            );
+          }
+        }
+      }
+
+      if (reward.type === 'market_unlock') {
+        setMarketUnlocked(true);
+
+        if (cartridgeWallet && playerWallet?.dojoRegistered) {
+          const result = await claimFeatureUnlockOnDojo({
+            wallet: cartridgeWallet,
+            feature: 'market',
+          });
+
+          if (result.status === 'failed') {
+            setWalletSyncMessage(
+              `La sync onchain du unlock market a echoue: ${result.message}`
             );
           }
         }
@@ -1350,9 +1434,11 @@ export default function App() {
       claimedLevelRewardIds,
       restaurantRewardFeaturesUnlocked: isTipJarUnlocked,
       greenhouseUnlocked,
+      marketUnlocked,
       tipJarTokensAvailable,
       tipJarCollected,
       inventory: playerInventory,
+      marketInventory: playerMarketInventory,
     };
 
     window.localStorage.setItem(
@@ -1363,7 +1449,9 @@ export default function App() {
     claimedLevelRewardIds,
     greenhouseUnlocked,
     isTipJarUnlocked,
+    marketUnlocked,
     playerInventory,
+    playerMarketInventory,
     playerWallet?.address,
     tipJarCollected,
     tipJarTokensAvailable,
@@ -1519,6 +1607,7 @@ export default function App() {
               <Village
                 onSelectBuilding={handleSelectBuilding}
                 greenhouseUnlocked={isGreenhouseAccessible}
+                marketUnlocked={isMarketAccessible}
                 playerWallet={playerWallet}
                 isWalletConnected={isCartridgeConnected}
                 onOpenWalletProfile={handleOpenWalletProfile}
@@ -1543,6 +1632,32 @@ export default function App() {
               >
                 <GreenhousePhase
                   onBack={handleExitGreenhouse}
+                  playerName={displayPlayerName}
+                  coins={playerStats.coins}
+                  level={playerStats.level}
+                  xp={playerStats.xp}
+                  xpToNext={playerStats.xpToNext}
+                  initialSeedInventory={getGreenhouseSeedInventoryFromPlayerInventory(
+                    playerInventory
+                  )}
+                  onSeedInventoryChange={(seedInventory) => {
+                    setPlayerInventory((prev) =>
+                      syncRewardSeedInventoryFromGreenhouse(prev, seedInventory)
+                    );
+                  }}
+                />
+              </motion.div>
+            )}
+
+            {gameState === 'market' && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="h-full w-full"
+              >
+                <MarketPhase
+                  onBack={handleExitMarket}
                   playerName={displayPlayerName}
                   coins={playerStats.coins}
                   level={playerStats.level}

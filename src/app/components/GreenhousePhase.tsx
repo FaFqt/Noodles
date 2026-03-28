@@ -1,12 +1,12 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import ResponsiveGameCanvas from './ResponsiveGameCanvas';
 import GameToolbar from './GameToolbar';
 import { useLanguage } from '../context/LanguageContext';
 import {
+  EMPTY_GREENHOUSE_SEED_STOCK,
   GREENHOUSE_GROWTH_DURATION_MS,
   GREENHOUSE_INGREDIENTS,
-  TEST_GREENHOUSE_SEED_STOCK,
   type GreenhouseIngredientId,
   type IngredientRarity,
 } from '../data/market';
@@ -70,6 +70,7 @@ interface GreenhousePhaseProps {
   xp?: number;
   xpToNext?: number;
   initialSeedInventory?: SeedInventory;
+  onSeedInventoryChange?: (inventory: SeedInventory) => void;
 }
 
 const INITIAL_PLOTS: GreenhousePlotState[] = Array.from({ length: 4 }, (_, index) => ({
@@ -78,7 +79,7 @@ const INITIAL_PLOTS: GreenhousePlotState[] = Array.from({ length: 4 }, (_, index
   plantedAt: null,
 }));
 
-const DEFAULT_SEEDS: SeedInventory = TEST_GREENHOUSE_SEED_STOCK;
+const DEFAULT_SEEDS: SeedInventory = EMPTY_GREENHOUSE_SEED_STOCK;
 
 const UI = {
   titleCard: { x: s(44), y: s(92), w: s(342), h: s(88) },
@@ -110,15 +111,15 @@ const UI = {
     { id: 'plot-3', x: s(35), y: s(435) },
     { id: 'plot-4', x: s(225), y: s(435) },
   ],
-  inventoryPanel: { x: s(20), y: s(496), w: s(390), h: s(214) },
+  inventoryPanel: { x: s(20), y: s(580), w: s(390), h: s(200) },
   inventoryCards: {
     railX: s(10),
-    railY: s(64),
+    railY: s(90),
     railW: s(370),
     railH: s(136),
-    gap: s(10),
-    cardW: s(110),
-    cardH: s(110),
+    gap: s(2),
+    cardW: s(100),
+    cardH: s(100),
     badgeH: s(22),
     imageY: s(14),
     imageW: s(52),
@@ -350,6 +351,7 @@ export default function GreenhousePhase({
   xp = 0,
   xpToNext = 100,
   initialSeedInventory = DEFAULT_SEEDS,
+  onSeedInventoryChange,
 }: GreenhousePhaseProps) {
   const { language } = useLanguage();
   const [now, setNow] = useState(() => Date.now());
@@ -359,7 +361,6 @@ export default function GreenhousePhase({
   const [greenhouseState, setGreenhouseState] = useState(() =>
     readStoredGreenhouseState(initialSeedInventory)
   );
-  const hasAppliedSeedTopUpRef = useRef(false);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -389,38 +390,31 @@ export default function GreenhousePhase({
   }, [statusMessage]);
 
   useEffect(() => {
-    if (hasAppliedSeedTopUpRef.current) return;
-
-    const needsTopUp = GREENHOUSE_INGREDIENTS.some(
-      (ingredient) => greenhouseState.seeds[ingredient.id] < initialSeedInventory[ingredient.id]
-    );
-
-    if (!needsTopUp) {
-      hasAppliedSeedTopUpRef.current = true;
-      return;
-    }
-
-    hasAppliedSeedTopUpRef.current = true;
-    setGreenhouseState((prev) => ({
-      ...prev,
-      seeds: GREENHOUSE_INGREDIENTS.reduce((accumulator, ingredient) => {
+    setGreenhouseState((prev) => {
+      const nextSeeds = GREENHOUSE_INGREDIENTS.reduce((accumulator, ingredient) => {
         accumulator[ingredient.id] = Math.max(
           prev.seeds[ingredient.id],
           initialSeedInventory[ingredient.id]
         );
         return accumulator;
-      }, {} as SeedInventory),
-    }));
-    setStatusMessage(
-      language === 'fr'
-        ? 'Stock de graines de test reapprovisionne.'
-        : 'Test seed stock replenished.'
-    );
-  }, [
-    greenhouseState.seeds,
-    initialSeedInventory,
-    language,
-  ]);
+      }, {} as SeedInventory);
+
+      const hasChanged = GREENHOUSE_INGREDIENTS.some(
+        (ingredient) => nextSeeds[ingredient.id] !== prev.seeds[ingredient.id]
+      );
+
+      return hasChanged
+        ? {
+            ...prev,
+            seeds: nextSeeds,
+          }
+        : prev;
+    });
+  }, [initialSeedInventory]);
+
+  useEffect(() => {
+    onSeedInventoryChange?.(greenhouseState.seeds);
+  }, [greenhouseState.seeds, onSeedInventoryChange]);
 
   const plotCards = useMemo(
     () =>
@@ -576,8 +570,8 @@ export default function GreenhousePhase({
                 style={{ fontFamily: 'Fredoka, sans-serif', fontWeight: 600 }}
               >
                 {language === 'fr'
-                  ? 'Test UI actif. Plante, attends les differentes phases de pousse puis recolte.'
-                  : 'Test UI active. Plant crops, wait through their growth phases, then harvest.'}
+                  ? 'Plante tes graines, surveille la pousse et recolte quand chaque parcelle est prete.'
+                  : 'Plant your seeds, watch them grow, and harvest each plot when it is ready.'}
               </div>
             </div>
 
@@ -893,8 +887,13 @@ export default function GreenhousePhase({
                           draggable={false}
                         />
                         <div
-                          className="absolute inset-0 flex items-center justify-center text-[11px] text-[#FFFCEB]"
-                          style={{ fontFamily: 'Fredoka, sans-serif', fontWeight: 700 }}
+                          className="absolute left-0 right-0 flex justify-center text-center leading-none text-[11px] text-[#FFFCEB]"
+                          style={{
+                            top: '50%',
+                            fontFamily: 'Fredoka, sans-serif',
+                            fontWeight: 700,
+                            transform: 'translateY(calc(-50% - 3px))',
+                          }}
                         >
                           x{cropCard.count}
                         </div>

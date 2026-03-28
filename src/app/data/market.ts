@@ -35,6 +35,10 @@ export const GREENHOUSE_INGREDIENT_IDS = [
 
 export type GreenhouseIngredientId = (typeof GREENHOUSE_INGREDIENT_IDS)[number];
 
+export const MARKET_INGREDIENT_IDS = ['egg', 'pork', 'chicken', 'tofu', 'shrimp'] as const;
+
+export type MarketIngredientId = (typeof MARKET_INGREDIENT_IDS)[number];
+
 export interface GreenhouseIngredientMarketData {
   id: GreenhouseIngredientId;
   name: LocalizedText;
@@ -49,7 +53,7 @@ export interface GreenhouseIngredientMarketData {
 }
 
 export interface MarketIngredientData {
-  id: 'egg' | 'pork' | 'chicken' | 'tofu' | 'shrimp';
+  id: MarketIngredientId;
   name: LocalizedText;
   rarity: IngredientRarity;
   marketBuyPrice: number;
@@ -238,16 +242,20 @@ export const GREENHOUSE_GROWTH_DURATION_MS: Record<GreenhouseIngredientId, numbe
     {} as Record<GreenhouseIngredientId, number>
   );
 
-export const TEST_GREENHOUSE_SEED_STOCK: Record<GreenhouseIngredientId, number> = {
-  corn: 2,
-  bamboo: 2,
-  mushroom: 2,
-  garlic: 2,
-  dragonpepper: 2,
-  firechili: 2,
-  goldenegg: 0,
-  honeybamboo: 0,
-  sakuramushroom: 0,
-  moonherb: 0,
-  crystalsalt: 0,
-};
+export const EMPTY_GREENHOUSE_SEED_STOCK: Record<GreenhouseIngredientId, number> =
+  GREENHOUSE_INGREDIENT_IDS.reduce(
+    (accumulator, ingredientId) => ({
+      ...accumulator,
+      [ingredientId]: 0,
+    }),
+    {} as Record<GreenhouseIngredientId, number>
+  );
+
+export const EMPTY_PLAYER_MARKET_INGREDIENT_INVENTORY: Record<MarketIngredientId, number> =
+  MARKET_INGREDIENT_IDS.reduce(
+    (accumulator, ingredientId) => ({
+      ...accumulator,
+      [ingredientId]: 0,
+    }),
+    {} as Record<MarketIngredientId, number>
+  );
