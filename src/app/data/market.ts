@@ -39,6 +39,19 @@ export const MARKET_INGREDIENT_IDS = ['egg', 'pork', 'chicken', 'tofu', 'shrimp'
 
 export type MarketIngredientId = (typeof MARKET_INGREDIENT_IDS)[number];
 
+export const PLAYER_MARKET_INVENTORY_IDS = [
+  'corn',
+  'bamboo',
+  'mushroom',
+  'garlic',
+  ...MARKET_INGREDIENT_IDS,
+] as const;
+
+export type PlayerMarketInventoryId = (typeof PLAYER_MARKET_INVENTORY_IDS)[number];
+export const MARKET_ROTATION_DURATION_MS = 2 * 60 * 60 * 1000;
+export const MARKET_ROTATION_SIZE = 4;
+export const MARKET_ROTATION_STOCK_LIMIT = 10;
+
 export interface GreenhouseIngredientMarketData {
   id: GreenhouseIngredientId;
   name: LocalizedText;
@@ -65,7 +78,7 @@ export const GREENHOUSE_INGREDIENTS: GreenhouseIngredientMarketData[] = [
     id: 'corn',
     name: { fr: 'Maïs doux', en: 'Sweet Corn' },
     rarity: 'common',
-    marketBuyPrice: 5,
+    marketBuyPrice: 3,
     seedPrice: 1,
     growthTimeMinutes: 10,
     averageYield: 3,
@@ -77,7 +90,7 @@ export const GREENHOUSE_INGREDIENTS: GreenhouseIngredientMarketData[] = [
     id: 'bamboo',
     name: { fr: 'Bamboo', en: 'Bamboo' },
     rarity: 'common',
-    marketBuyPrice: 5,
+    marketBuyPrice: 3,
     seedPrice: 1,
     growthTimeMinutes: 12,
     averageYield: 4,
@@ -89,7 +102,7 @@ export const GREENHOUSE_INGREDIENTS: GreenhouseIngredientMarketData[] = [
     id: 'mushroom',
     name: { fr: 'Champignons', en: 'Mushrooms' },
     rarity: 'common',
-    marketBuyPrice: 5,
+    marketBuyPrice: 3,
     seedPrice: 1,
     growthTimeMinutes: 14,
     averageYield: 5,
@@ -101,7 +114,7 @@ export const GREENHOUSE_INGREDIENTS: GreenhouseIngredientMarketData[] = [
     id: 'garlic',
     name: { fr: 'Ail', en: 'Garlic' },
     rarity: 'common',
-    marketBuyPrice: 3,
+    marketBuyPrice: 2,
     seedPrice: 2,
     growthTimeMinutes: 8,
     averageYield: 5,
@@ -200,35 +213,35 @@ export const MARKET_INGREDIENTS: MarketIngredientData[] = [
     id: 'egg',
     name: { fr: 'Œuf', en: 'Egg' },
     rarity: 'common',
-    marketBuyPrice: 6,
+    marketBuyPrice: 4,
     image: miniEggAsset,
   },
   {
     id: 'pork',
     name: { fr: 'Porc', en: 'Pork' },
     rarity: 'common',
-    marketBuyPrice: 8,
+    marketBuyPrice: 5,
     image: miniPorkAsset,
   },
   {
     id: 'chicken',
     name: { fr: 'Poulet', en: 'Chicken' },
     rarity: 'common',
-    marketBuyPrice: 7,
+    marketBuyPrice: 4,
     image: miniChickenAsset,
   },
   {
     id: 'tofu',
     name: { fr: 'Tofu', en: 'Tofu' },
     rarity: 'common',
-    marketBuyPrice: 5,
+    marketBuyPrice: 3,
     image: miniTofuAsset,
   },
   {
     id: 'shrimp',
     name: { fr: 'Crevettes', en: 'Shrimp' },
     rarity: 'common',
-    marketBuyPrice: 9,
+    marketBuyPrice: 6,
     image: miniShrimpAsset,
   },
 ];
@@ -251,11 +264,11 @@ export const EMPTY_GREENHOUSE_SEED_STOCK: Record<GreenhouseIngredientId, number>
     {} as Record<GreenhouseIngredientId, number>
   );
 
-export const EMPTY_PLAYER_MARKET_INGREDIENT_INVENTORY: Record<MarketIngredientId, number> =
-  MARKET_INGREDIENT_IDS.reduce(
+export const EMPTY_PLAYER_MARKET_INGREDIENT_INVENTORY: Record<PlayerMarketInventoryId, number> =
+  PLAYER_MARKET_INVENTORY_IDS.reduce(
     (accumulator, ingredientId) => ({
       ...accumulator,
       [ingredientId]: 0,
     }),
-    {} as Record<MarketIngredientId, number>
+    {} as Record<PlayerMarketInventoryId, number>
   );

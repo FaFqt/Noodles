@@ -1,5 +1,6 @@
 import rewardTipJar from "../../assets/rewards/RewardTipJar.png";
 import rewardCorn from "../../assets/rewards/Corn.png";
+import rewardGreenhouse from "../../assets/rewards/RewardGreenhouse.png";
 import seedDragonPepper from "../../assets/rewards/DragonPepper.png";
 import rewardMoonHerb from "../../assets/rewards/MoonHerb.png";
 import rewardToken from "../../assets/rewards/TokenRewards.png";
@@ -76,6 +77,18 @@ export const LEVEL_REWARDS: LevelRewardDefinition[] = [
     tipJarTokens: 16,
   },
   {
+    id: "level-4-corn-seed",
+    level: 4,
+    type: "seed",
+    titleFr: "1 graine de maïs offerte",
+    titleEn: "1 corn seed granted",
+    descriptionFr: "1 graine de maïs est ajoutee a ton inventaire.",
+    descriptionEn: "1 corn seed is added to your inventory.",
+    image: rewardCorn,
+    seedCrop: "corn",
+    seedAmount: 1,
+  },
+  {
     id: "level-5-tipjar-tokens",
     level: 5,
     type: "tipjar_tokens",
@@ -87,16 +100,14 @@ export const LEVEL_REWARDS: LevelRewardDefinition[] = [
     tipJarTokens: 18,
   },
   {
-    id: "level-5-corn-seed",
+    id: "level-5-greenhouse",
     level: 5,
-    type: "seed",
-    titleFr: "1 graine de maïs offerte",
-    titleEn: "1 corn seed granted",
-    descriptionFr: "1 graine de maïs est ajoutee a ton inventaire.",
-    descriptionEn: "1 corn seed is added to your inventory.",
-    image: rewardCorn,
-    seedCrop: "corn",
-    seedAmount: 1,
+    type: "greenhouse_unlock",
+    titleFr: "Serre débloquée",
+    titleEn: "Greenhouse unlocked",
+    descriptionFr: "La serre devient accessible dans le village.",
+    descriptionEn: "The greenhouse becomes accessible in the village.",
+    image: rewardGreenhouse,
   },
   {
     id: "level-6-tipjar-tokens",
@@ -110,14 +121,14 @@ export const LEVEL_REWARDS: LevelRewardDefinition[] = [
     tipJarTokens: 20,
   },
   {
-    id: "level-6-greenhouse",
+    id: "level-6-market",
     level: 6,
-    type: "greenhouse_unlock",
-    titleFr: "Serre débloquée",
-    titleEn: "Greenhouse unlocked",
-    descriptionFr: "La serre devient accessible dans le village.",
-    descriptionEn: "The greenhouse becomes accessible in the village.",
-    image: rewardMoonHerb,
+    type: "market_unlock",
+    titleFr: "Marche debloque",
+    titleEn: "Market unlocked",
+    descriptionFr: "Le marche devient accessible dans le village.",
+    descriptionEn: "The market becomes accessible in the village.",
+    image: rewardToken,
   },
   {
     id: "level-7-tipjar-tokens",
@@ -152,16 +163,6 @@ export const LEVEL_REWARDS: LevelRewardDefinition[] = [
     descriptionEn: "24 tokens are added to the Tip Jar.",
     image: rewardToken,
     tipJarTokens: 24,
-  },
-  {
-    id: "level-8-market",
-    level: 8,
-    type: "market_unlock",
-    titleFr: "Marche debloque",
-    titleEn: "Market unlocked",
-    descriptionFr: "Le marche devient accessible dans le village.",
-    descriptionEn: "The market becomes accessible in the village.",
-    image: rewardToken,
   },
 ];
 

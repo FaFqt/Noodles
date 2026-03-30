@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion } from "motion/react";
 
 import restaurantImage from "../../assets/screens/RestaurantAccueil.png";
 import cookButtonImage from "../../assets/ui/ButtonStart.png";
 import notificationTipJarAsset from "../../assets/ui/Notification TipJar.svg";
 import tipJarAsset from "../../assets/ui/TipJar.png";
 import coinLogoAsset from "../../assets/ui/CoinLogo.svg";
+import superButtonAsset from "../../assets/ui/SuperButton.svg";
 import slot1Asset from "../../assets/ui/Slot_1.png";
 import slot2LockedAsset from "../../assets/ui/Slot_2locked.png";
 import slot3LockedAsset from "../../assets/ui/Slot_3locked.png";
@@ -25,10 +26,14 @@ interface RestaurantScreenProps {
   xpToNext?: number;
   serviceSlotsVisible?: boolean;
   rewardFeaturesUnlocked?: boolean;
+  inventoryUnlocked?: boolean;
+  canStartCooking?: boolean;
+  inventoryStatusMessage?: string | null;
   servicePausedUntil?: number | null;
   tipJarTokensAvailable?: number;
   tipJarCollected?: boolean;
   onCollectTipJar?: () => void;
+  onOpenInventory?: () => void;
 }
 
 type FlyingToken = {
@@ -65,6 +70,18 @@ const UI = {
     y: s(320),
     w: s(48),
     h: s(48),
+  },
+  inventoryButton: {
+    x: s(28),
+    y: s(600),
+    w: s(120),
+    h: s(42),
+  },
+  inventoryStatus: {
+    x: s(40),
+    y: s(548),
+    w: s(340),
+    h: s(40),
   },
   cookButton: {
     x: s(80),
@@ -104,10 +121,14 @@ export default function NoodlesRestaurantScreen({
   xpToNext = 9,
   serviceSlotsVisible = false,
   rewardFeaturesUnlocked = false,
+  inventoryUnlocked = false,
+  canStartCooking = true,
+  inventoryStatusMessage = null,
   servicePausedUntil = null,
   tipJarTokensAvailable = 0,
   tipJarCollected = false,
   onCollectTipJar,
+  onOpenInventory,
 }: RestaurantScreenProps) {
   const { language, t } = useLanguage();
   const rootRef = React.useRef<HTMLDivElement | null>(null);
@@ -177,7 +198,7 @@ export default function NoodlesRestaurantScreen({
   const scaledOffsetY = (viewportSize.height - scaledHeight) / 2;
 
   const handleCookClick = () => {
-    if (isServicePaused) return;
+    if (isServicePaused || !canStartCooking) return;
     onEnter?.();
   };
 
@@ -199,12 +220,14 @@ export default function NoodlesRestaurantScreen({
     collectTimeoutRef.current = window.setTimeout(() => {
       onCollectTipJar?.();
       setFlyingTokens([]);
+      collectTimeoutRef.current = null;
     }, 900);
   };
 
   useEffect(() => {
     if (!canCollectTipJar) {
       setIsCollectingTipJar(false);
+      setFlyingTokens([]);
     }
   }, [canCollectTipJar]);
 
@@ -293,35 +316,32 @@ export default function NoodlesRestaurantScreen({
 
           {rewardFeaturesUnlocked ? (
             <>
-              <AnimatePresence>
-                {showTipJarNotification && (
-                  <motion.img
-                    key="tipjar-notification"
-                    src={notificationTipJarAsset}
-                    alt="Tip Jar notification"
-                    className="absolute"
-                    style={{
-                      left: UI.notification.x,
-                      top: UI.notification.y,
-                      width: UI.notification.w,
-                      height: UI.notification.h,
-                    }}
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{
-                      opacity: 1,
-                      scale: [1, 1.06, 1],
-                      y: [0, -4, 0],
-                    }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    transition={{
-                      duration: 1.4,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                    }}
-                    draggable={false}
-                  />
-                )}
-              </AnimatePresence>
+              {showTipJarNotification ? (
+                <motion.img
+                  key={`tipjar-notification-${tipJarTokensAvailable}`}
+                  src={notificationTipJarAsset}
+                  alt="Tip Jar notification"
+                  className="absolute"
+                  style={{
+                    left: UI.notification.x,
+                    top: UI.notification.y,
+                    width: UI.notification.w,
+                    height: UI.notification.h,
+                  }}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{
+                    opacity: 1,
+                    scale: [1, 1.06, 1],
+                    y: [0, -4, 0],
+                  }}
+                  transition={{
+                    duration: 1.4,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                  draggable={false}
+                />
+              ) : null}
 
               <motion.button
                 type="button"
@@ -387,6 +407,60 @@ export default function NoodlesRestaurantScreen({
             />
           ))}
 
+          {inventoryUnlocked ? (
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.97, y: 2 }}
+              onClick={onOpenInventory}
+              className="absolute"
+              style={{
+                left: UI.inventoryButton.x,
+                top: UI.inventoryButton.y,
+                width: UI.inventoryButton.w,
+                height: UI.inventoryButton.h,
+              }}
+            >
+              <img
+                src={superButtonAsset}
+                alt={language === "fr" ? "Inventaire" : "Inventory"}
+                className="h-full w-full object-fill"
+                draggable={false}
+              />
+              <span
+                className="absolute inset-0 flex items-center justify-center text-center text-[#FFFDF8]"
+                style={{
+                  fontFamily: "Fredoka, sans-serif",
+                  fontSize: "0.72rem",
+                  fontWeight: 700,
+                  letterSpacing: "0.03em",
+                  textShadow: "0 2px 8px rgba(0,0,0,0.34)",
+                  transform: "translateY(-4px)",
+                }}
+              >
+                {language === "fr" ? "INVENTAIRE" : "INVENTORY"}
+              </span>
+            </motion.button>
+          ) : null}
+
+          {inventoryStatusMessage ? (
+            <div
+              className="absolute rounded-[18px] bg-[rgba(62,28,11,0.8)] px-4 py-2 text-center text-[#FFF0D8]"
+              style={{
+                left: UI.inventoryStatus.x,
+                top: UI.inventoryStatus.y,
+                width: UI.inventoryStatus.w,
+                minHeight: UI.inventoryStatus.h,
+                fontFamily: "Fredoka, sans-serif",
+                fontSize: s(10),
+                fontWeight: 700,
+                lineHeight: 1.25,
+                boxShadow: "0 10px 20px rgba(0,0,0,0.18)",
+              }}
+            >
+              {inventoryStatusMessage}
+            </div>
+          ) : null}
+
           <motion.button
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -394,7 +468,7 @@ export default function NoodlesRestaurantScreen({
             whileHover={!isServicePaused ? { scale: 1.03 } : {}}
             whileTap={!isServicePaused ? { scale: 0.97, y: 2 } : {}}
             onClick={handleCookClick}
-            disabled={isServicePaused}
+            disabled={isServicePaused || !canStartCooking}
             type="button"
             className="absolute z-30 disabled:opacity-65"
             style={{
@@ -428,6 +502,10 @@ export default function NoodlesRestaurantScreen({
                 ? language === "fr"
                   ? "EN ATTENTE"
                   : "PLEASE WAIT"
+                : !canStartCooking
+                  ? language === "fr"
+                    ? "STOCK INSUFFISANT"
+                    : "LOW STOCK"
                 : t("cookRestaurant")}
             </span>
           </motion.button>

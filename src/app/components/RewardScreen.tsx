@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useLanguage } from "../context/LanguageContext";
 
@@ -154,10 +154,6 @@ export default function RewardScreen({
   const { language } = useLanguage();
   const [step, setStep] = useState<"summary" | "reward">("summary");
   const hasReward = Boolean(reward);
-
-  useEffect(() => {
-    setStep("summary");
-  }, [reward?.id, services.length]);
 
   const globalStats = useMemo(() => {
     const qualityAvg = average(services.map((service) => service.quality));
@@ -339,9 +335,14 @@ export default function RewardScreen({
         </motion.div>
 
         {/* Reward title/description */}
-        <AnimatePresence>
+        <AnimatePresence mode="wait">
           {step === "reward" && reward && (
-            <>
+            <motion.div
+              key={`reward-copy-${reward.id}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
               <motion.div
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -379,7 +380,7 @@ export default function RewardScreen({
               >
                 {rewardDescription}
               </motion.div>
-            </>
+            </motion.div>
           )}
         </AnimatePresence>
 
@@ -408,7 +409,7 @@ export default function RewardScreen({
               />
             ) : hasReward ? (
               <motion.img
-                key="open"
+                key={`open-${reward?.id ?? "reward"}`}
                 src={chestOpen}
                 alt="Open chest"
                 draggable={false}
@@ -423,9 +424,14 @@ export default function RewardScreen({
         </div>
 
         {/* Appearing reward + sparkles */}
-        <AnimatePresence>
+        <AnimatePresence mode="wait">
           {step === "reward" && reward && (
-            <>
+            <motion.div
+              key={`reward-asset-${reward.id}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
               <Sparkles
                 centerX={UI.glowCenter.x}
                 centerY={UI.glowCenter.y}
@@ -449,15 +455,15 @@ export default function RewardScreen({
                   filter:
                     "drop-shadow(0 0 18px rgba(255,214,98,0.45)) drop-shadow(0 6px 18px rgba(0,0,0,0.22))",
                 }}
-              >
-                <img
-                  src={reward.image}
+                >
+                  <img
+                    src={reward.image}
                   alt={rewardTitle}
                   draggable={false}
                   className="max-h-full max-w-full object-contain"
-                />
-              </motion.div>
-            </>
+                  />
+                </motion.div>
+            </motion.div>
           )}
         </AnimatePresence>
 

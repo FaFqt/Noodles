@@ -9,6 +9,7 @@ import {
   GREENHOUSE_INGREDIENTS,
   type GreenhouseIngredientId,
   type IngredientRarity,
+  type PlayerMarketInventoryId,
 } from '../data/market';
 import greenhouseBackground from '../../assets/screens/GreenhouseScreen.png';
 import plantButtonAsset from '../../assets/ui/PlantButton.svg';
@@ -46,7 +47,7 @@ import harvestFireChiliAsset from '../../assets/greenhouse/FireChili/harvestFire
 
 const DESIGN_WIDTH = 430;
 const DESIGN_HEIGHT = 780;
-const STORAGE_KEY = 'greenhouse-ui-state-v1';
+const DEFAULT_STORAGE_KEY = 'greenhouse-ui-state-v2:local';
 const SCALE = 1;
 const s = (value: number) => value * SCALE;
 
@@ -69,8 +70,10 @@ interface GreenhousePhaseProps {
   level?: number;
   xp?: number;
   xpToNext?: number;
+  storageKey?: string;
   initialSeedInventory?: SeedInventory;
   onSeedInventoryChange?: (inventory: SeedInventory) => void;
+  onHarvestIngredient?: (ingredientId: PlayerMarketInventoryId, quantity: number) => void;
 }
 
 const INITIAL_PLOTS: GreenhousePlotState[] = Array.from({ length: 4 }, (_, index) => ({
@@ -187,7 +190,10 @@ const PLANT_PHASE_ASSETS: Partial<
   },
 };
 
-function readStoredGreenhouseState(initialSeedInventory: SeedInventory) {
+function readStoredGreenhouseState(
+  storageKey: string,
+  initialSeedInventory: SeedInventory
+) {
   if (typeof window === 'undefined') {
     return {
       plots: INITIAL_PLOTS,
@@ -195,7 +201,7 @@ function readStoredGreenhouseState(initialSeedInventory: SeedInventory) {
     };
   }
 
-  const rawValue = window.localStorage.getItem(STORAGE_KEY);
+  const rawValue = window.localStorage.getItem(storageKey);
   if (!rawValue) {
     return {
       plots: INITIAL_PLOTS,
@@ -350,8 +356,10 @@ export default function GreenhousePhase({
   level = 1,
   xp = 0,
   xpToNext = 100,
+  storageKey = DEFAULT_STORAGE_KEY,
   initialSeedInventory = DEFAULT_SEEDS,
   onSeedInventoryChange,
+  onHarvestIngredient,
 }: GreenhousePhaseProps) {
   const { language } = useLanguage();
   const [now, setNow] = useState(() => Date.now());
@@ -359,7 +367,7 @@ export default function GreenhousePhase({
   const [inventoryPlotId, setInventoryPlotId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [greenhouseState, setGreenhouseState] = useState(() =>
-    readStoredGreenhouseState(initialSeedInventory)
+    readStoredGreenhouseState(storageKey, initialSeedInventory)
   );
 
   useEffect(() => {
@@ -374,13 +382,13 @@ export default function GreenhousePhase({
     if (typeof window === 'undefined') return;
 
     window.localStorage.setItem(
-      STORAGE_KEY,
+      storageKey,
       JSON.stringify({
         plots: greenhouseState.plots,
         seeds: greenhouseState.seeds,
       })
     );
-  }, [greenhouseState]);
+  }, [greenhouseState, storageKey]);
 
   useEffect(() => {
     if (!statusMessage) return;
@@ -496,6 +504,12 @@ export default function GreenhousePhase({
     if (!plot || !plot.crop || !plotVisual?.isReady) return;
 
     const harvestedCrop = plot.crop;
+    const harvestedIngredient = GREENHOUSE_INGREDIENTS.find(
+      (ingredient) => ingredient.id === harvestedCrop
+    );
+    const harvestedYield = harvestedIngredient?.averageYield
+      ? Math.max(1, Math.round(harvestedIngredient.averageYield))
+      : 1;
     setGreenhouseState((prev) => ({
       seeds: {
         ...prev.seeds,
@@ -511,14 +525,23 @@ export default function GreenhousePhase({
           : plot
       ),
     }));
+    if (
+      harvestedIngredient &&
+      ['corn', 'bamboo', 'mushroom', 'garlic'].includes(harvestedIngredient.id)
+    ) {
+      onHarvestIngredient?.(
+        harvestedIngredient.id as PlayerMarketInventoryId,
+        harvestedYield
+      );
+    }
     const cropLabel = getCropDisplayName(
       harvestedCrop,
       language === 'fr' ? 'fr' : 'en'
     );
     setStatusMessage(
       language === 'fr'
-        ? `${cropLabel} recolte, +1 graine`
-        : `${cropLabel} harvested, +1 seed`
+        ? `${cropLabel} recolte, +${harvestedYield} ingredient${harvestedYield > 1 ? 's' : ''} et +1 graine`
+        : `${cropLabel} harvested, +${harvestedYield} ingredient${harvestedYield > 1 ? 's' : ''} and +1 seed`
     );
   };
 
