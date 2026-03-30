@@ -6,7 +6,7 @@ import cookButtonImage from "../../assets/ui/ButtonStart.png";
 import notificationTipJarAsset from "../../assets/ui/Notification TipJar.svg";
 import tipJarAsset from "../../assets/ui/TipJar.png";
 import coinLogoAsset from "../../assets/ui/CoinLogo.svg";
-import superButtonAsset from "../../assets/ui/SuperButton.svg";
+import inventoryButtonAsset from "../../assets/ui/InventoryButton.svg";
 import slot1Asset from "../../assets/ui/Slot_1.png";
 import slot2LockedAsset from "../../assets/ui/Slot_2locked.png";
 import slot3LockedAsset from "../../assets/ui/Slot_3locked.png";
@@ -72,10 +72,10 @@ const UI = {
     h: s(48),
   },
   inventoryButton: {
-    x: s(28),
-    y: s(600),
-    w: s(120),
-    h: s(42),
+    x: s(14),
+    y: s(420),
+    w: s(124),
+    h: s(45),
   },
   inventoryStatus: {
     x: s(40),
@@ -421,7 +421,7 @@ export default function NoodlesRestaurantScreen({
               }}
             >
               <img
-                src={superButtonAsset}
+                src={inventoryButtonAsset}
                 alt={language === "fr" ? "Inventaire" : "Inventory"}
                 className="h-full w-full object-fill"
                 draggable={false}
@@ -430,11 +430,11 @@ export default function NoodlesRestaurantScreen({
                 className="absolute inset-0 flex items-center justify-center text-center text-[#FFFDF8]"
                 style={{
                   fontFamily: "Fredoka, sans-serif",
-                  fontSize: "0.72rem",
+                  fontSize: "0.7rem",
                   fontWeight: 700,
                   letterSpacing: "0.03em",
                   textShadow: "0 2px 8px rgba(0,0,0,0.34)",
-                  transform: "translateY(-4px)",
+                  transform: "translate(8px, -2px)",
                 }}
               >
                 {language === "fr" ? "INVENTAIRE" : "INVENTORY"}

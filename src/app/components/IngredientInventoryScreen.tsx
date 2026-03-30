@@ -24,9 +24,9 @@ interface IngredientInventoryScreenProps {
 }
 
 const UI = {
-  panel: { x: 20, y: 106, w: 390, h: 548 },
-  grid: { x: 38, y: 186, w: 354 },
-  backButton: { x: 110, y: 584, w: 210, h: 48 },
+  panel: { x: 20, y: 106, w: 390, h: 510 },
+  grid: { x: 15, y: 120, w: 354 },
+  backButton: { x: 90, y: 584, w: 210, h: 48 },
 } as const;
 
 export default function IngredientInventoryScreen({

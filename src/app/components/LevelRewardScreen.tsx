@@ -105,6 +105,7 @@ export default function LevelRewardScreen({
               }}
             >
               <motion.img
+                key={`${reward.id}-${reward.seedCrop ?? 'default'}`}
                 src={reward.image}
                 alt={title}
                 draggable={false}

@@ -427,7 +427,7 @@ export default function RewardScreen({
         <AnimatePresence mode="wait">
           {step === "reward" && reward && (
             <motion.div
-              key={`reward-asset-${reward.id}`}
+              key={`reward-asset-${reward.id}-${reward.seedCrop ?? 'default'}`}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}

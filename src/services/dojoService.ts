@@ -203,7 +203,11 @@ function isFeatureAlreadyUnlockedError(error: unknown) {
 function getCropTypeValue(crop: SeedRewardCrop) {
   if (crop === 'corn') return 1;
   if (crop === 'dragonpepper') return 2;
-  return 3;
+  if (crop === 'moonherb') return 3;
+  if (crop === 'bamboo') return 4;
+  if (crop === 'mushroom') return 5;
+  if (crop === 'garlic') return 6;
+  return 7;
 }
 
 export async function registerPlayerOnDojo(params: {
@@ -532,6 +536,13 @@ export async function grantSeedRewardOnDojo(params: {
   crop: SeedRewardCrop;
   amount: number;
 }): Promise<GrantSeedResult> {
+  if (!['corn', 'dragonpepper', 'moonherb'].includes(params.crop)) {
+    return {
+      status: 'skipped',
+      message: `Dojo seed sync is not enabled yet for ${params.crop}. Reward kept locally only.`,
+    };
+  }
+
   if (!DOJO_REWARD_SYSTEM_ADDRESS || DOJO_REWARD_SYSTEM_ADDRESS === '0x0') {
     return {
       status: 'skipped',

@@ -14,6 +14,7 @@ import {
 } from '../data/market';
 import marketScreenAsset from '../../assets/screens/MarketScreen.png';
 import superButtonAsset from '../../assets/ui/SuperButton.svg';
+import inventoryButtonAsset from '../../assets/ui/InventoryButton.svg';
 import boxMarketPriceAsset from '../../assets/ui/Box_Market_price.svg';
 import refreshAsset from '../../assets/ui/Refresh.svg';
 
@@ -70,7 +71,7 @@ type DragState = {
 
 const UI = {
   header: { x: 30, y: 100, w: 200, h: 50 },
-  inventoryButton: { x: 286, y: 112, w: 112, h: 40 },
+  inventoryButton: { x: 274, y: 108, w: 124, h: 45 },
   offersLabel: { x: 50, y: 300, w: 220, h: 38},
   refreshBadge: { x: 220, y: 340, w: 110, h: 30 },
   cartZone: { x: 28, y: 610, w: 130, h: 100 },
@@ -513,7 +514,7 @@ export default function MarketPhase({
 
   const buyButtonLabel =
     language === 'fr' ? `ACHETER ${totalCost}` : `BUY FOR ${totalCost}`;
-  const inventoryButtonLabel = language === 'fr' ? 'STOCK' : 'INVENTORY';
+  const inventoryButtonLabel = language === 'fr' ? 'INVENTAIRE' : 'INVENTORY';
   const returnToMarketLabel =
     language === 'fr' ? 'RETOUR AU MARCHE' : 'BACK TO MARKET';
   const headerTitle = language === 'fr' ? 'MARCHE' : 'MARKET';
@@ -602,19 +603,19 @@ export default function MarketPhase({
                     }}
                   >
                     <img
-                      src={superButtonAsset}
+                      src={inventoryButtonAsset}
                       alt={inventoryButtonLabel}
                       className="h-full w-full object-fill"
                       draggable={false}
                     />
                     <span
-                      className="absolute inset-0 flex items-center justify-center text-center text-[12px] text-[#FFFDF8]"
+                      className="absolute inset-0 flex items-center justify-center text-center text-[11px] text-[#FFFDF8]"
                       style={{
                         fontFamily: 'Fredoka, sans-serif',
                         fontWeight: 700,
                         letterSpacing: '0.03em',
                         textShadow: '0 2px 8px rgba(0,0,0,0.34)',
-                        transform: 'translateY(-4px)',
+                        transform: 'translate(8px, -2px)',
                       }}
                     >
                       {inventoryButtonLabel}

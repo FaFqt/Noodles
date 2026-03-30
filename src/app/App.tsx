@@ -41,6 +41,7 @@ import {
   applyXpGain,
   getXpToNextLevel,
   LEVEL_REWARDS,
+  resolveLevelRewardDefinition,
   type LevelRewardDefinition,
   type LevelRewardType,
   type SeedRewardCrop,
@@ -129,7 +130,11 @@ const INITIAL_PLAYER_STATS = {
 };
 const INITIAL_PLAYER_INVENTORY = {
   cornSeed: 0,
+  bambooSeed: 0,
+  mushroomSeed: 0,
+  garlicSeed: 0,
   dragonPepperSeed: 0,
+  fireChiliSeed: 0,
   moonHerbSeed: 0,
   crystalSalt: 0,
 };
@@ -221,8 +226,20 @@ function readWalletRewardState(walletAddress: string): WalletRewardState | null 
         cornSeed: Number.isFinite(parsed.inventory?.cornSeed)
           ? Math.max(0, Number(parsed.inventory?.cornSeed))
           : 0,
+        bambooSeed: Number.isFinite(parsed.inventory?.bambooSeed)
+          ? Math.max(0, Number(parsed.inventory?.bambooSeed))
+          : 0,
+        mushroomSeed: Number.isFinite(parsed.inventory?.mushroomSeed)
+          ? Math.max(0, Number(parsed.inventory?.mushroomSeed))
+          : 0,
+        garlicSeed: Number.isFinite(parsed.inventory?.garlicSeed)
+          ? Math.max(0, Number(parsed.inventory?.garlicSeed))
+          : 0,
         dragonPepperSeed: Number.isFinite(parsed.inventory?.dragonPepperSeed)
           ? Math.max(0, Number(parsed.inventory?.dragonPepperSeed))
+          : 0,
+        fireChiliSeed: Number.isFinite(parsed.inventory?.fireChiliSeed)
+          ? Math.max(0, Number(parsed.inventory?.fireChiliSeed))
           : 0,
         moonHerbSeed: Number.isFinite(parsed.inventory?.moonHerbSeed)
           ? Math.max(0, Number(parsed.inventory?.moonHerbSeed))
@@ -325,6 +342,18 @@ function incrementInventoryValue(
     return { ...inventory, cornSeed: inventory.cornSeed + amount };
   }
 
+  if (crop === 'bamboo') {
+    return { ...inventory, bambooSeed: inventory.bambooSeed + amount };
+  }
+
+  if (crop === 'mushroom') {
+    return { ...inventory, mushroomSeed: inventory.mushroomSeed + amount };
+  }
+
+  if (crop === 'garlic') {
+    return { ...inventory, garlicSeed: inventory.garlicSeed + amount };
+  }
+
   if (crop === 'dragonpepper') {
     return {
       ...inventory,
@@ -332,9 +361,23 @@ function incrementInventoryValue(
     };
   }
 
+  if (crop === 'firechili') {
+    return {
+      ...inventory,
+      fireChiliSeed: inventory.fireChiliSeed + amount,
+    };
+  }
+
+  if (crop === 'moonherb') {
+    return {
+      ...inventory,
+      moonHerbSeed: inventory.moonHerbSeed + amount,
+    };
+  }
+
   return {
     ...inventory,
-    moonHerbSeed: inventory.moonHerbSeed + amount,
+    crystalSalt: inventory.crystalSalt + amount,
   };
 }
 
@@ -344,7 +387,11 @@ function getGreenhouseSeedInventoryFromPlayerInventory(
   return {
     ...EMPTY_GREENHOUSE_SEED_STOCK,
     corn: inventory.cornSeed,
+    bamboo: inventory.bambooSeed,
+    mushroom: inventory.mushroomSeed,
+    garlic: inventory.garlicSeed,
     dragonpepper: inventory.dragonPepperSeed,
+    firechili: inventory.fireChiliSeed,
     moonherb: inventory.moonHerbSeed,
   };
 }
@@ -355,7 +402,11 @@ function syncRewardSeedInventoryFromGreenhouse(
 ) {
   if (
     inventory.cornSeed === greenhouseInventory.corn &&
+    inventory.bambooSeed === greenhouseInventory.bamboo &&
+    inventory.mushroomSeed === greenhouseInventory.mushroom &&
+    inventory.garlicSeed === greenhouseInventory.garlic &&
     inventory.dragonPepperSeed === greenhouseInventory.dragonpepper &&
+    inventory.fireChiliSeed === greenhouseInventory.firechili &&
     inventory.moonHerbSeed === greenhouseInventory.moonherb
   ) {
     return inventory;
@@ -364,7 +415,11 @@ function syncRewardSeedInventoryFromGreenhouse(
   return {
     ...inventory,
     cornSeed: greenhouseInventory.corn,
+    bambooSeed: greenhouseInventory.bamboo,
+    mushroomSeed: greenhouseInventory.mushroom,
+    garlicSeed: greenhouseInventory.garlic,
     dragonPepperSeed: greenhouseInventory.dragonpepper,
+    fireChiliSeed: greenhouseInventory.firechili,
     moonHerbSeed: greenhouseInventory.moonherb,
   };
 }
@@ -690,10 +745,14 @@ export default function App() {
           storedState?.inventory.cornSeed ?? 0,
           onchainSnapshot?.inventory?.cornSeed ?? 0
         ),
+        bambooSeed: Math.max(storedState?.inventory.bambooSeed ?? 0, 0),
+        mushroomSeed: Math.max(storedState?.inventory.mushroomSeed ?? 0, 0),
+        garlicSeed: Math.max(storedState?.inventory.garlicSeed ?? 0, 0),
         dragonPepperSeed: Math.max(
           storedState?.inventory.dragonPepperSeed ?? 0,
           onchainSnapshot?.inventory?.dragonPepperSeed ?? 0
         ),
+        fireChiliSeed: Math.max(storedState?.inventory.fireChiliSeed ?? 0, 0),
         moonHerbSeed: Math.max(
           storedState?.inventory.moonHerbSeed ?? 0,
           onchainSnapshot?.inventory?.moonHerbSeed ?? 0
@@ -1385,7 +1444,7 @@ export default function App() {
       const progression = applyXpGain(prev, xpGained, claimedLevelRewardIds);
 
       newlyUnlockedRewards = progression.unlockedRewards.map((reward) => ({
-        reward,
+        reward: resolveLevelRewardDefinition(reward),
         level: reward.level,
       }));
 

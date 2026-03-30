@@ -1,7 +1,11 @@
 import rewardTipJar from "../../assets/rewards/RewardTipJar.png";
 import rewardCorn from "../../assets/rewards/Corn.png";
+import rewardBamboo from "../../assets/rewards/Bamboo.png";
+import rewardMushroom from "../../assets/rewards/Mushroom.png";
+import rewardGarlic from "../../assets/rewards/Garlic.png";
 import rewardGreenhouse from "../../assets/rewards/RewardGreenhouse.png";
 import seedDragonPepper from "../../assets/rewards/DragonPepper.png";
+import rewardFireChili from "../../assets/rewards/FireChili.png";
 import rewardMoonHerb from "../../assets/rewards/MoonHerb.png";
 import rewardToken from "../../assets/rewards/TokenRewards.png";
 
@@ -22,7 +26,14 @@ export type LevelRewardType =
   | "greenhouse_unlock"
   | "market_unlock";
 
-export type SeedRewardCrop = "corn" | "dragonpepper" | "moonherb";
+export type SeedRewardCrop =
+  | "corn"
+  | "bamboo"
+  | "mushroom"
+  | "garlic"
+  | "dragonpepper"
+  | "firechili"
+  | "moonherb";
 
 export interface LevelRewardDefinition {
   id: string;
@@ -35,8 +46,39 @@ export interface LevelRewardDefinition {
   image: string;
   tipJarTokens?: number;
   seedCrop?: SeedRewardCrop;
+  seedCropOptions?: SeedRewardCrop[];
   seedAmount?: number;
 }
+
+const RANDOM_SEED_REWARD_COPY: Record<
+  "dragonpepper" | "firechili",
+  {
+    titleFr: string;
+    titleEn: string;
+    descriptionFr: string;
+    descriptionEn: string;
+    image: string;
+  }
+> = {
+  dragonpepper: {
+    titleFr: "1 graine de Dragon Pepper offerte",
+    titleEn: "1 Dragon Pepper seed granted",
+    descriptionFr:
+      "1 graine de Dragon Pepper est ajoutee a ton inventaire. Elle servira plus tard aux premieres recettes epiques.",
+    descriptionEn:
+      "1 Dragon Pepper seed is added to your inventory. It will later help unlock the first epic recipes.",
+    image: seedDragonPepper,
+  },
+  firechili: {
+    titleFr: "1 graine de Fire Chili offerte",
+    titleEn: "1 Fire Chili seed granted",
+    descriptionFr:
+      "1 graine de Fire Chili est ajoutee a ton inventaire. Elle servira plus tard aux premieres recettes epiques.",
+    descriptionEn:
+      "1 Fire Chili seed is added to your inventory. It will later help unlock the first epic recipes.",
+    image: rewardFireChili,
+  },
+};
 
 export function getXpToNextLevel(level: number) {
   return 100 + Math.max(0, level - 1) * 50;
@@ -142,15 +184,15 @@ export const LEVEL_REWARDS: LevelRewardDefinition[] = [
     tipJarTokens: 22,
   },
   {
-    id: "level-7-dragonpepper-seed",
+    id: "level-7-garlic-seed",
     level: 7,
     type: "seed",
-    titleFr: "1 graine de Dragon Pepper offerte",
-    titleEn: "1 Dragon Pepper seed granted",
-    descriptionFr: "1 graine de Dragon Pepper est ajoutee a ton inventaire.",
-    descriptionEn: "1 Dragon Pepper seed is added to your inventory.",
-    image: seedDragonPepper,
-    seedCrop: "dragonpepper",
+    titleFr: "1 graine d'ail offerte",
+    titleEn: "1 garlic seed granted",
+    descriptionFr: "1 graine d'ail est ajoutee a ton inventaire.",
+    descriptionEn: "1 garlic seed is added to your inventory.",
+    image: rewardGarlic,
+    seedCrop: "garlic",
     seedAmount: 1,
   },
   {
@@ -164,7 +206,97 @@ export const LEVEL_REWARDS: LevelRewardDefinition[] = [
     image: rewardToken,
     tipJarTokens: 24,
   },
+  {
+    id: "level-8-bamboo-seed",
+    level: 8,
+    type: "seed",
+    titleFr: "1 graine de bamboo offerte",
+    titleEn: "1 bamboo seed granted",
+    descriptionFr: "1 graine de bamboo est ajoutee a ton inventaire.",
+    descriptionEn: "1 bamboo seed is added to your inventory.",
+    image: rewardBamboo,
+    seedCrop: "bamboo",
+    seedAmount: 1,
+  },
+  {
+    id: "level-9-tipjar-tokens",
+    level: 9,
+    type: "tipjar_tokens",
+    titleFr: "26 tokens pour le Tip Jar",
+    titleEn: "26 Tip Jar tokens",
+    descriptionFr: "26 tokens sont ajoutes au chat pourboire.",
+    descriptionEn: "26 tokens are added to the Tip Jar.",
+    image: rewardToken,
+    tipJarTokens: 26,
+  },
+  {
+    id: "level-9-mushroom-seed",
+    level: 9,
+    type: "seed",
+    titleFr: "1 graine de champignon offerte",
+    titleEn: "1 mushroom seed granted",
+    descriptionFr: "1 graine de champignon est ajoutee a ton inventaire.",
+    descriptionEn: "1 mushroom seed is added to your inventory.",
+    image: rewardMushroom,
+    seedCrop: "mushroom",
+    seedAmount: 1,
+  },
+  {
+    id: "level-10-tipjar-tokens",
+    level: 10,
+    type: "tipjar_tokens",
+    titleFr: "28 tokens pour le Tip Jar",
+    titleEn: "28 Tip Jar tokens",
+    descriptionFr: "28 tokens sont ajoutes au chat pourboire.",
+    descriptionEn: "28 tokens are added to the Tip Jar.",
+    image: rewardToken,
+    tipJarTokens: 28,
+  },
+  {
+    id: "level-10-rare-seed",
+    level: 10,
+    type: "seed",
+    titleFr: "1 graine rare offerte",
+    titleEn: "1 rare seed granted",
+    descriptionFr:
+      "Une graine rare est tiree au hasard entre Dragon Pepper et Fire Chili, pour preparer plus tard les premieres recettes epiques.",
+    descriptionEn:
+      "A rare seed is drawn at random between Dragon Pepper and Fire Chili to prepare the first epic recipes later.",
+    image: seedDragonPepper,
+    seedCropOptions: ["dragonpepper", "firechili"],
+    seedAmount: 1,
+  },
 ];
+
+export function resolveLevelRewardDefinition(
+  reward: LevelRewardDefinition
+): LevelRewardDefinition {
+  if (reward.seedCrop || !reward.seedCropOptions?.length) {
+    return reward;
+  }
+
+  const randomIndex = Math.floor(Math.random() * reward.seedCropOptions.length);
+  const chosenCrop = reward.seedCropOptions[randomIndex];
+
+  if (chosenCrop === "dragonpepper" || chosenCrop === "firechili") {
+    const resolvedCopy = RANDOM_SEED_REWARD_COPY[chosenCrop];
+
+    return {
+      ...reward,
+      seedCrop: chosenCrop,
+      titleFr: resolvedCopy.titleFr,
+      titleEn: resolvedCopy.titleEn,
+      descriptionFr: resolvedCopy.descriptionFr,
+      descriptionEn: resolvedCopy.descriptionEn,
+      image: resolvedCopy.image,
+    };
+  }
+
+  return {
+    ...reward,
+    seedCrop: chosenCrop,
+  };
+}
 
 export function applyXpGain(
   playerStats: PlayerStats,

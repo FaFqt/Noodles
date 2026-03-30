@@ -54,3 +54,19 @@ Update
 
 TODO
 - Run an in-browser smoke test once Playwright or a local browser session is available; current sandbox still allows `vite build` but does not have `playwright` installed for the `develop-web-game` loop.
+
+Update
+- Replaced the market and restaurant inventory entry buttons with `InventoryButton.svg` and moved the restaurant button upward/left to better match the mobile mockup near the counter.
+- Kept the inventory text inside the button, offset slightly to the right so it clears the built-in icon area of the asset.
+
+Update
+- Aligned the restaurant inventory layout to the same `panel / grid / back button` positions already used by the market inventory view so both screens share the same asset placement.
+
+Update
+- Updated progression rewards for levels 7 to 10: Tip Jar tokens continue with `22 / 24 / 26 / 28`, level 7 now grants `1 garlic seed`, level 8 grants `1 bamboo seed`, level 9 grants `1 mushroom seed`, and the old level-7 Dragon Pepper reward was removed.
+- Added a level-10 rare-seed reward that resolves randomly to either `Dragon Pepper` or `Fire Chili` when the reward is queued, so the reward screen shows the actual drawn seed.
+- Extended local reward inventory persistence to track `bamboo`, `mushroom`, `garlic`, and `fire chili` seeds so these rewards survive reconnects and correctly feed the greenhouse inventory.
+- Dojo seed sync now skips the newly added local-only seed crops until the onchain contract/indexed inventory supports them, avoiding noisy sync failures for those rewards.
+
+Update
+- Rekeyed the reward art in both `RewardScreen` and `LevelRewardScreen` with `reward.seedCrop` so the level-10 random reward always remounts with the correct image when the draw resolves to `Dragon Pepper` versus `Fire Chili`.
