@@ -12,6 +12,18 @@ pub trait IPlayerSystem<TContractState> {
     fn sync_player_progress(
         ref self: TContractState, level: u32, xp: u32, xp_to_next: u32, noods_balance: u128,
     );
+    fn sync_ingredient_inventory(
+        ref self: TContractState,
+        corn: u32,
+        bamboo: u32,
+        mushroom: u32,
+        garlic: u32,
+        egg: u32,
+        pork: u32,
+        chicken: u32,
+        tofu: u32,
+        shrimp: u32,
+    );
     fn reset_player_progress_for_dev(ref self: TContractState);
 }
 
@@ -53,6 +65,23 @@ pub mod player_system {
         pub xp: u32,
         pub xp_to_next: u32,
         pub noods_balance: u128,
+        pub updated_at: u64,
+    }
+
+    #[derive(Copy, Drop, Serde)]
+    #[dojo::event]
+    pub struct IngredientInventorySynced {
+        #[key]
+        pub player: ContractAddress,
+        pub corn: u32,
+        pub bamboo: u32,
+        pub mushroom: u32,
+        pub garlic: u32,
+        pub egg: u32,
+        pub pork: u32,
+        pub chicken: u32,
+        pub tofu: u32,
+        pub shrimp: u32,
         pub updated_at: u64,
     }
 
@@ -111,6 +140,7 @@ pub mod player_system {
                     tip_jar_unlocked: false,
                     greenhouse_unlocked: false,
                     market_unlocked: false,
+                    ingredient_inventory_ready: false,
                 }
             );
 
@@ -122,6 +152,15 @@ pub mod player_system {
                     dragonpepper_seed: 0,
                     moonherb_seed: 0,
                     crystal_salt: 0,
+                    corn: 0,
+                    bamboo: 0,
+                    mushroom: 0,
+                    garlic: 0,
+                    egg: 0,
+                    pork: 0,
+                    chicken: 0,
+                    tofu: 0,
+                    shrimp: 0,
                 }
             );
 
@@ -188,6 +227,57 @@ pub mod player_system {
             );
         }
 
+        fn sync_ingredient_inventory(
+            ref self: ContractState,
+            corn: u32,
+            bamboo: u32,
+            mushroom: u32,
+            garlic: u32,
+            egg: u32,
+            pork: u32,
+            chicken: u32,
+            tofu: u32,
+            shrimp: u32,
+        ) {
+            let mut world = self.world_default();
+            let player = get_caller_address();
+            let profile: PlayerProfile = world.read_model(player);
+            let mut inventory: PlayerInventory = world.read_model(player);
+            let mut unlocks: PlayerUnlocks = world.read_model(player);
+            let now = get_block_timestamp();
+
+            assert(profile.created_at != 0, PLAYER_NOT_REGISTERED);
+
+            inventory.corn = corn;
+            inventory.bamboo = bamboo;
+            inventory.mushroom = mushroom;
+            inventory.garlic = garlic;
+            inventory.egg = egg;
+            inventory.pork = pork;
+            inventory.chicken = chicken;
+            inventory.tofu = tofu;
+            inventory.shrimp = shrimp;
+            unlocks.ingredient_inventory_ready = true;
+
+            world.write_model(@inventory);
+            world.write_model(@unlocks);
+            world.emit_event(
+                @IngredientInventorySynced {
+                    player,
+                    corn,
+                    bamboo,
+                    mushroom,
+                    garlic,
+                    egg,
+                    pork,
+                    chicken,
+                    tofu,
+                    shrimp,
+                    updated_at: now,
+                }
+            );
+        }
+
         fn reset_player_progress_for_dev(ref self: ContractState) {
             let mut world = self.world_default();
             let player = get_caller_address();
@@ -214,6 +304,15 @@ pub mod player_system {
                     dragonpepper_seed: 0,
                     moonherb_seed: 0,
                     crystal_salt: 0,
+                    corn: 0,
+                    bamboo: 0,
+                    mushroom: 0,
+                    garlic: 0,
+                    egg: 0,
+                    pork: 0,
+                    chicken: 0,
+                    tofu: 0,
+                    shrimp: 0,
                 }
             );
 
@@ -223,6 +322,7 @@ pub mod player_system {
                     tip_jar_unlocked: false,
                     greenhouse_unlocked: false,
                     market_unlocked: false,
+                    ingredient_inventory_ready: false,
                 }
             );
 

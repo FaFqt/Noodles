@@ -34,6 +34,7 @@ import {
   type OnchainPlayerSnapshot,
   registerPlayerOnDojo,
   resetPlayerProgressOnDojo,
+  syncIngredientInventoryOnDojo,
   syncPlayerOnDojo,
   syncPlayerProgressOnDojo,
 } from '../services/dojoService';
@@ -178,6 +179,7 @@ interface WalletRewardState {
   greenhouseUnlocked: boolean;
   marketUnlocked: boolean;
   ingredientInventoryInitialized: boolean;
+  hasPendingIngredientInventorySync: boolean;
   tipJarTokensAvailable: number;
   tipJarCollected: boolean;
   inventory: typeof INITIAL_PLAYER_INVENTORY;
@@ -205,6 +207,12 @@ function readWalletRewardState(walletAddress: string): WalletRewardState | null 
 
   try {
     const parsed = JSON.parse(rawValue) as Partial<WalletRewardState>;
+    const inferredPendingIngredientSync =
+      typeof parsed.hasPendingIngredientInventorySync === 'boolean'
+        ? parsed.hasPendingIngredientInventorySync
+        : PLAYER_MARKET_INVENTORY_IDS.some((ingredientId) =>
+            Number(parsed.marketInventory?.[ingredientId] ?? 0) > 0
+          );
 
     return {
       claimedLevelRewardIds: Array.isArray(parsed.claimedLevelRewardIds)
@@ -218,6 +226,7 @@ function readWalletRewardState(walletAddress: string): WalletRewardState | null 
       greenhouseUnlocked: Boolean(parsed.greenhouseUnlocked),
       marketUnlocked: Boolean(parsed.marketUnlocked),
       ingredientInventoryInitialized: Boolean(parsed.ingredientInventoryInitialized),
+      hasPendingIngredientInventorySync: inferredPendingIngredientSync,
       tipJarTokensAvailable: Number.isFinite(parsed.tipJarTokensAvailable)
         ? Math.max(0, Number(parsed.tipJarTokensAvailable))
         : 0,
@@ -328,9 +337,31 @@ function readWalletProgressState(walletAddress: string): WalletProgressState | n
 function getDojoHydrationSummary(snapshot: OnchainPlayerSnapshot | null | undefined) {
   if (!snapshot) return null;
 
-  return snapshot.inventory
-    ? 'progression et solde Noods recuperes depuis Dojo'
-    : 'progression recuperee depuis Dojo';
+  if (!snapshot.inventory) {
+    return 'progression recuperee depuis Dojo';
+  }
+
+  return snapshot.inventory.ingredientInventorySupported
+    ? 'progression, solde Noods et inventaire ingredients recuperes depuis Dojo'
+    : 'progression et solde Noods recuperes depuis Dojo';
+}
+
+function getPlayerMarketInventoryFromOnchainInventory(
+  inventory?: OnchainPlayerSnapshot['inventory']
+) {
+  if (!inventory?.ingredientInventorySupported) return null;
+
+  return {
+    corn: inventory.corn,
+    bamboo: inventory.bamboo,
+    mushroom: inventory.mushroom,
+    garlic: inventory.garlic,
+    egg: inventory.egg,
+    pork: inventory.pork,
+    chicken: inventory.chicken,
+    tofu: inventory.tofu,
+    shrimp: inventory.shrimp,
+  } satisfies typeof INITIAL_PLAYER_MARKET_INVENTORY;
 }
 
 function incrementInventoryValue(
@@ -611,6 +642,8 @@ export default function App() {
   const [isWalletSyncing, setIsWalletSyncing] = useState(false);
   const [hasHydratedOnchainProgress, setHasHydratedOnchainProgress] = useState(false);
   const [hasPendingProgressSync, setHasPendingProgressSync] = useState(false);
+  const [hasPendingIngredientInventorySync, setHasPendingIngredientInventorySync] =
+    useState(false);
   const bootstrappedWalletAddressRef = useRef<string | null>(null);
   const hasStartedWalletLoadingRef = useRef(false);
   const progressSyncInFlightRef = useRef(false);
@@ -618,6 +651,10 @@ export default function App() {
   const latestQueuedProgressSyncReasonRef = useRef('initialisation');
   const latestPlayerStatsRef = useRef(playerStats);
   const hasPendingProgressSyncRef = useRef(hasPendingProgressSync);
+  const ingredientInventorySyncInFlightRef = useRef(false);
+  const latestQueuedIngredientInventorySyncReasonRef = useRef('initialisation');
+  const latestPlayerMarketInventoryRef = useRef(playerMarketInventory);
+  const hasPendingIngredientInventorySyncRef = useRef(hasPendingIngredientInventorySync);
 
   const allRecipeCards: RecipeSelectionItem[] = useMemo(
     () =>
@@ -648,6 +685,7 @@ export default function App() {
   const tipJarUnlockLevel = getFirstRewardLevelByType('tipjar_unlock');
   const greenhouseUnlockLevel = getFirstRewardLevelByType('greenhouse_unlock');
   const marketUnlockLevel = getFirstRewardLevelByType('market_unlock');
+  const ingredientInventoryActivationLevel = Math.max(6, marketUnlockLevel);
   const isTipJarUnlocked =
     restaurantRewardFeaturesUnlocked ||
     playerStats.level >= tipJarUnlockLevel ||
@@ -660,7 +698,10 @@ export default function App() {
     marketUnlocked ||
     playerStats.level >= marketUnlockLevel ||
     hasClaimedRewardType(claimedLevelRewardIds, 'market_unlock');
-  const isIngredientInventoryActive = isMarketAccessible;
+  const isIngredientInventoryActive =
+    ingredientInventoryInitialized ||
+    isMarketAccessible ||
+    playerStats.level >= ingredientInventoryActivationLevel;
   const craftableRecipeIds = useMemo(
     () =>
       new Set(
@@ -699,6 +740,8 @@ export default function App() {
 
     setPlayerMarketInventory((prev) => mergeStarterInventory(prev));
     setIngredientInventoryInitialized(true);
+    setHasPendingIngredientInventorySync(true);
+    latestQueuedIngredientInventorySyncReasonRef.current = 'starter_pack_niveau_6';
     setRestaurantInventoryMessage(
       'L’inventaire ingredients est actif. Le maïs devient maintenant ta premiere ressource sous tension.'
     );
@@ -713,6 +756,14 @@ export default function App() {
   }, [hasPendingProgressSync]);
 
   useEffect(() => {
+    latestPlayerMarketInventoryRef.current = playerMarketInventory;
+  }, [playerMarketInventory]);
+
+  useEffect(() => {
+    hasPendingIngredientInventorySyncRef.current = hasPendingIngredientInventorySync;
+  }, [hasPendingIngredientInventorySync]);
+
+  useEffect(() => {
     if (!restaurantInventoryMessage) return;
 
     const timeout = window.setTimeout(() => {
@@ -725,6 +776,9 @@ export default function App() {
   const restoreWalletRewardState = useCallback(
     (walletAddress: string, onchainSnapshot?: OnchainPlayerSnapshot | null) => {
       const storedState = readWalletRewardState(walletAddress);
+      const onchainMarketInventory = getPlayerMarketInventoryFromOnchainInventory(
+        onchainSnapshot?.inventory
+      );
       const inferredTipJarUnlocked =
         Boolean(storedState?.restaurantRewardFeaturesUnlocked) ||
         Boolean(onchainSnapshot?.unlocks?.tipJarUnlocked) ||
@@ -740,6 +794,9 @@ export default function App() {
         Boolean(onchainSnapshot?.unlocks?.marketUnlocked) ||
         (onchainSnapshot?.progress.level ?? playerStats.level) >= marketUnlockLevel ||
         hasClaimedRewardType(storedState?.claimedLevelRewardIds ?? [], 'market_unlock');
+      const inferredIngredientInventoryInitialized =
+        Boolean(storedState?.ingredientInventoryInitialized) ||
+        Boolean(onchainSnapshot?.unlocks?.ingredientInventoryReady);
       const nextInventory = {
         cornSeed: Math.max(
           storedState?.inventory.cornSeed ?? 0,
@@ -762,20 +819,23 @@ export default function App() {
           onchainSnapshot?.inventory?.crystalSalt ?? 0
         ),
       };
+      const nextMarketInventory =
+        storedState?.hasPendingIngredientInventorySync || !onchainMarketInventory
+          ? storedState?.marketInventory ?? INITIAL_PLAYER_MARKET_INVENTORY
+          : onchainMarketInventory;
 
       setClaimedLevelRewardIds(storedState?.claimedLevelRewardIds ?? []);
       setRestaurantRewardFeaturesUnlocked(inferredTipJarUnlocked);
       setGreenhouseUnlocked(inferredGreenhouseUnlocked);
       setMarketUnlocked(inferredMarketUnlocked);
-      setIngredientInventoryInitialized(
-        Boolean(storedState?.ingredientInventoryInitialized)
+      setIngredientInventoryInitialized(inferredIngredientInventoryInitialized);
+      setHasPendingIngredientInventorySync(
+        Boolean(storedState?.hasPendingIngredientInventorySync)
       );
       setTipJarTokensAvailable(storedState?.tipJarTokensAvailable ?? 0);
       setTipJarCollected(storedState?.tipJarCollected ?? false);
       setPlayerInventory(nextInventory);
-      setPlayerMarketInventory(
-        storedState?.marketInventory ?? INITIAL_PLAYER_MARKET_INVENTORY
-      );
+      setPlayerMarketInventory(nextMarketInventory);
       setPendingLevelRewards([]);
     },
     [greenhouseUnlockLevel, marketUnlockLevel, playerStats.level, tipJarUnlockLevel]
@@ -811,12 +871,6 @@ export default function App() {
         return;
       }
 
-      if (!onchainSnapshot.inventory) {
-        setPlayerStats(storedState.playerStats);
-        setHasPendingProgressSync(storedState.hasPendingProgressSync);
-        return;
-      }
-
       const shouldUseLocalProgress = storedState.hasPendingProgressSync;
 
       if (shouldUseLocalProgress) {
@@ -843,12 +897,18 @@ export default function App() {
     setPlayerWallet(null);
     setDojoRegistrationConfirmed(false);
     setHasHydratedOnchainProgress(false);
+    setHasPendingIngredientInventorySync(false);
   }, []);
 
   const queueProgressSync = useCallback((reason: string) => {
     latestQueuedProgressSyncReasonRef.current = reason;
     progressSyncQueuedWhileInFlightRef.current = true;
     setHasPendingProgressSync(true);
+  }, []);
+
+  const queueIngredientInventorySync = useCallback((reason: string) => {
+    latestQueuedIngredientInventorySyncReasonRef.current = reason;
+    setHasPendingIngredientInventorySync(true);
   }, []);
 
   const flushProgressSyncQueue = useCallback(
@@ -913,6 +973,52 @@ export default function App() {
       playerWallet?.dojoRegistered,
       hasHydratedOnchainProgress,
     ]
+  );
+
+  const flushIngredientInventorySyncQueue = useCallback(
+    async (triggerLabel: string) => {
+      if (
+        !hasPendingIngredientInventorySyncRef.current ||
+        !canSyncProgressOnDojo ||
+        !cartridgeWallet
+      ) {
+        return;
+      }
+
+      if (ingredientInventorySyncInFlightRef.current) {
+        return;
+      }
+
+      ingredientInventorySyncInFlightRef.current = true;
+
+      try {
+        const inventorySnapshot = latestPlayerMarketInventoryRef.current;
+        const syncReason =
+          latestQueuedIngredientInventorySyncReasonRef.current || triggerLabel;
+        const result = await syncIngredientInventoryOnDojo({
+          wallet: cartridgeWallet,
+          inventory: inventorySnapshot,
+        });
+
+        if (result.status === 'failed') {
+          setWalletSyncMessage(
+            `La sync inventaire onchain (${syncReason}) a echoue: ${result.message}`
+          );
+          return;
+        }
+
+        if (result.status === 'skipped') {
+          setWalletSyncMessage(
+            `La sync inventaire onchain (${syncReason}) a ete ignoree: ${result.message}`
+          );
+        }
+
+        setHasPendingIngredientInventorySync(false);
+      } finally {
+        ingredientInventorySyncInFlightRef.current = false;
+      }
+    },
+    [canSyncProgressOnDojo, cartridgeWallet]
   );
 
   const handleStartGame = () => {
@@ -1231,6 +1337,7 @@ export default function App() {
     setClaimedLevelRewardIds([]);
     setPendingLevelRewards([]);
     setHasPendingProgressSync(false);
+    setHasPendingIngredientInventorySync(false);
     setHasHydratedOnchainProgress(true);
     setWalletSyncMessage(
       resetResult.status === 'reset'
@@ -1296,6 +1403,7 @@ export default function App() {
     );
 
     queueProgressSync('achat_marche');
+    queueIngredientInventorySync('achat_marche');
   };
 
   const handleExitRestaurant = () => {
@@ -1355,6 +1463,7 @@ export default function App() {
 
     if (isIngredientInventoryActive) {
       setPlayerMarketInventory((prev) => consumeRecipeIngredients(prev, recipe));
+      queueIngredientInventorySync('consommation_recette');
     }
 
     setSelectedRecipe(recipe);
@@ -1775,6 +1884,16 @@ export default function App() {
   ]);
 
   useEffect(() => {
+    if (!hasPendingIngredientInventorySync) return;
+    void flushIngredientInventorySyncQueue('inventaire_local_mis_a_jour');
+  }, [
+    canSyncProgressOnDojo,
+    flushIngredientInventorySyncQueue,
+    hasPendingIngredientInventorySync,
+    playerMarketInventory,
+  ]);
+
+  useEffect(() => {
     if (typeof window === 'undefined') return;
 
     window.localStorage.setItem(
@@ -1792,6 +1911,7 @@ export default function App() {
       greenhouseUnlocked,
       marketUnlocked,
       ingredientInventoryInitialized,
+      hasPendingIngredientInventorySync,
       tipJarTokensAvailable,
       tipJarCollected,
       inventory: playerInventory,
@@ -1805,6 +1925,7 @@ export default function App() {
   }, [
     claimedLevelRewardIds,
     greenhouseUnlocked,
+    hasPendingIngredientInventorySync,
     ingredientInventoryInitialized,
     isTipJarUnlocked,
     marketUnlocked,
@@ -1873,13 +1994,17 @@ export default function App() {
     if (typeof window === 'undefined') return;
 
     const handlePageHide = () => {
-      if (!hasPendingProgressSync) return;
-      void flushProgressSyncQueue('fermeture_app');
+      if (hasPendingProgressSync) {
+        void flushProgressSyncQueue('fermeture_app');
+      }
+      if (hasPendingIngredientInventorySyncRef.current) {
+        void flushIngredientInventorySyncQueue('fermeture_app');
+      }
     };
 
     window.addEventListener('pagehide', handlePageHide);
     return () => window.removeEventListener('pagehide', handlePageHide);
-  }, [flushProgressSyncQueue, hasPendingProgressSync]);
+  }, [flushIngredientInventorySyncQueue, flushProgressSyncQueue, hasPendingProgressSync]);
 
   const handleCollectTipJar = () => {
     if (tipJarTokensAvailable <= 0 || tipJarCollected) return;
@@ -2009,6 +2134,7 @@ export default function App() {
                     setPlayerMarketInventory((prev) =>
                       incrementMarketInventoryValue(prev, ingredientId, quantity)
                     );
+                    queueIngredientInventorySync('recolte_serre');
                   }}
                 />
               </motion.div>

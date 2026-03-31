@@ -8,4 +8,5 @@ pub struct PlayerUnlocks {
     pub tip_jar_unlocked: bool,
     pub greenhouse_unlocked: bool,
     pub market_unlocked: bool,
+    pub ingredient_inventory_ready: bool,
 }

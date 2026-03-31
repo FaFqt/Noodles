@@ -32,11 +32,13 @@ function buildGameSessionPolicies(): SessionPolicies {
     'register_player',
     'touch_login',
     'sync_player_progress',
+    'sync_ingredient_inventory',
     'reset_player_progress_for_dev',
   ]);
   addContractPolicy(contracts, DOJO_UNLOCK_SYSTEM_ADDRESS, [
     'claim_tip_jar_unlock',
     'claim_greenhouse_unlock',
+    'claim_market_unlock',
   ]);
   addContractPolicy(contracts, DOJO_REWARD_SYSTEM_ADDRESS, ['grant_seed']);
 

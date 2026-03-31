@@ -9,6 +9,7 @@ type RegisterPlayerStatus =
 
 type SyncPlayerStatus = 'synced' | 'missing' | 'skipped' | 'failed';
 type SyncProgressStatus = 'synced' | 'skipped' | 'failed';
+type SyncIngredientInventoryStatus = 'synced' | 'skipped' | 'failed';
 type ResetProgressStatus = 'reset' | 'skipped' | 'failed';
 type ClaimUnlockStatus = 'claimed' | 'already_claimed' | 'skipped' | 'failed';
 type GrantSeedStatus = 'granted' | 'skipped' | 'failed';
@@ -27,6 +28,12 @@ export interface SyncPlayerResult {
 
 export interface SyncProgressResult {
   status: SyncProgressStatus;
+  message: string;
+  txHash?: string | null;
+}
+
+export interface SyncIngredientInventoryResult {
+  status: SyncIngredientInventoryStatus;
   message: string;
   txHash?: string | null;
 }
@@ -57,17 +64,28 @@ export interface OnchainPlayerProgress {
 }
 
 export interface OnchainPlayerInventory {
+  ingredientInventorySupported: boolean;
   noodsBalance: number;
   cornSeed: number;
   dragonPepperSeed: number;
   moonHerbSeed: number;
   crystalSalt: number;
+  corn: number;
+  bamboo: number;
+  mushroom: number;
+  garlic: number;
+  egg: number;
+  pork: number;
+  chicken: number;
+  tofu: number;
+  shrimp: number;
 }
 
 export interface OnchainPlayerUnlocks {
   tipJarUnlocked: boolean;
   greenhouseUnlocked: boolean;
   marketUnlocked: boolean;
+  ingredientInventoryReady: boolean;
 }
 
 export interface OnchainPlayerSnapshot {
@@ -393,11 +411,21 @@ export async function getPlayerInventoryOnDojo(params: {
     }
 
     return {
+      ingredientInventorySupported: result.length >= 15,
       noodsBalance: feltToNumber(result[1]),
       cornSeed: feltToNumber(result[2]),
       dragonPepperSeed: feltToNumber(result[3]),
       moonHerbSeed: feltToNumber(result[4]),
       crystalSalt: feltToNumber(result[5]),
+      corn: feltToNumber(result[6]),
+      bamboo: feltToNumber(result[7]),
+      mushroom: feltToNumber(result[8]),
+      garlic: feltToNumber(result[9]),
+      egg: feltToNumber(result[10]),
+      pork: feltToNumber(result[11]),
+      chicken: feltToNumber(result[12]),
+      tofu: feltToNumber(result[13]),
+      shrimp: feltToNumber(result[14]),
     };
   } catch (error) {
     if (isMissingEntrypointError(error)) {
@@ -443,6 +471,7 @@ export async function getPlayerUnlocksOnDojo(params: {
       tipJarUnlocked: feltToBoolean(result[1]),
       greenhouseUnlocked: feltToBoolean(result[2]),
       marketUnlocked: feltToBoolean(result[3]),
+      ingredientInventoryReady: feltToBoolean(result[4]),
     };
   } catch (error) {
     if (isMissingEntrypointError(error)) {
@@ -626,6 +655,75 @@ export async function syncPlayerProgressOnDojo(params: {
       status: 'failed',
       message:
         error instanceof Error ? error.message : 'Dojo progress sync failed after wallet update.',
+    };
+  }
+}
+
+export async function syncIngredientInventoryOnDojo(params: {
+  wallet: any;
+  inventory: {
+    corn: number;
+    bamboo: number;
+    mushroom: number;
+    garlic: number;
+    egg: number;
+    pork: number;
+    chicken: number;
+    tofu: number;
+    shrimp: number;
+  };
+}): Promise<SyncIngredientInventoryResult> {
+  if (!DOJO_PLAYER_SYSTEM_ADDRESS || DOJO_PLAYER_SYSTEM_ADDRESS === '0x0') {
+    return {
+      status: 'skipped',
+      message: 'Dojo player system address is not configured yet. Ingredient inventory sync was skipped.',
+    };
+  }
+
+  try {
+    const tx = await params.wallet.execute([
+      {
+        contractAddress: DOJO_PLAYER_SYSTEM_ADDRESS,
+        entrypoint: 'sync_ingredient_inventory',
+        calldata: CallData.compile({
+          corn: params.inventory.corn,
+          bamboo: params.inventory.bamboo,
+          mushroom: params.inventory.mushroom,
+          garlic: params.inventory.garlic,
+          egg: params.inventory.egg,
+          pork: params.inventory.pork,
+          chicken: params.inventory.chicken,
+          tofu: params.inventory.tofu,
+          shrimp: params.inventory.shrimp,
+        }),
+      },
+    ]);
+
+    if (typeof tx?.wait === 'function') {
+      await tx.wait();
+    }
+
+    return {
+      status: 'synced',
+      message: 'Ingredient inventory synced on Dojo.',
+      txHash: tx?.hash ?? tx?.transaction_hash ?? null,
+    };
+  } catch (error) {
+    if (isMissingEntrypointError(error)) {
+      return {
+        status: 'skipped',
+        message: 'Dojo ingredient inventory sync is not deployed yet for this player system.',
+      };
+    }
+
+    console.error('Failed to sync ingredient inventory on Dojo:', error);
+
+    return {
+      status: 'failed',
+      message:
+        error instanceof Error
+          ? error.message
+          : 'Dojo ingredient inventory sync failed after wallet update.',
     };
   }
 }
