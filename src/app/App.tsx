@@ -793,7 +793,7 @@ export default function App() {
             xp: onchainSnapshot.progress.xp,
             xpToNext:
               onchainSnapshot.progress.xpToNext || INITIAL_PLAYER_STATS.xpToNext,
-            coins: onchainSnapshot.inventory?.noodsBalance ?? INITIAL_PLAYER_STATS.coins,
+            coins: onchainSnapshot.inventory?.noodsBalance ?? prev.coins,
           }));
         } else {
           setPlayerStats((prev) => ({
@@ -806,6 +806,12 @@ export default function App() {
       }
 
       if (!onchainSnapshot) {
+        setPlayerStats(storedState.playerStats);
+        setHasPendingProgressSync(storedState.hasPendingProgressSync);
+        return;
+      }
+
+      if (!onchainSnapshot.inventory) {
         setPlayerStats(storedState.playerStats);
         setHasPendingProgressSync(storedState.hasPendingProgressSync);
         return;
@@ -925,6 +931,14 @@ export default function App() {
           'Le wallet est connecte, mais la progression onchain n’a pas pu etre relue. La sync automatique reste en pause pour eviter tout ecrasement.'
         );
         return null;
+      }
+
+      if (!onchainSnapshot.inventory) {
+        setHasHydratedOnchainProgress(false);
+        setWalletSyncMessage(
+          'La progression Dojo a ete retrouvee, mais l’inventaire onchain n’a pas pu etre relu. La sync automatique est mise en pause pour eviter d’ecraser les Noods.'
+        );
+        return onchainSnapshot;
       }
 
       setHasHydratedOnchainProgress(true);

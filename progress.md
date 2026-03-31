@@ -70,3 +70,7 @@ Update
 
 Update
 - Rekeyed the reward art in both `RewardScreen` and `LevelRewardScreen` with `reward.seedCrop` so the level-10 random reward always remounts with the correct image when the draw resolves to `Dragon Pepper` versus `Fire Chili`.
+
+Update
+- Audited the Dojo reconnect flow: `PlayerInventory` onchain currently stores `noods_balance` plus a few seed counters only, while the common ingredient inventory remains frontend-local and is not represented in the Cairo models yet.
+- Added a reconnect safety guard in `App.tsx`: if Dojo progress is readable but `PlayerInventory` cannot be read, the app now preserves the local cached stats and pauses automatic progress sync instead of falling back to default Noods and risking an overwrite of the onchain balance.
