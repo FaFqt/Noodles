@@ -1,5 +1,5 @@
-import React from "react";
-import { motion } from "motion/react";
+import React, { useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
 
 import avatarSvg from "../../assets/ui/Avatar.svg";
 import coinBoxSvg from "../../assets/ui/CoinBox.svg";
@@ -8,6 +8,7 @@ import lvlStarSvg from "../../assets/ui/LvlStar.svg";
 import nameBoxSvg from "../../assets/ui/NameBox.svg";
 import returnButtonSvg from "../../assets/ui/ReturnButton.svg";
 import settingsSvg from "../../assets/ui/Settings.svg";
+import { useAudioSettings } from "../context/AudioSettingsContext";
 
 interface GameToolbarProps {
   playerName?: string;
@@ -33,6 +34,12 @@ const UI = {
     x: 354,
     y: 20,
     size: 50,
+  },
+
+  settingsPanel: {
+    x: 220,
+    y: 76,
+    w: 186,
   },
 
   nameBox: {
@@ -109,12 +116,39 @@ export default function GameToolbar({
   xp = 4,
   xpToNext = 9,
   onBack,
-  onSettings,
   className = "",
 }: GameToolbarProps) {
   const xpRatio = Math.max(0, Math.min(1, xpToNext > 0 ? xp / xpToNext : 0));
   const displayPlayerName =
     playerName.length > 12 ? `${playerName.slice(0, 11)}…` : playerName;
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const settingsPanelRef = useRef<HTMLDivElement | null>(null);
+  const settingsButtonRef = useRef<HTMLButtonElement | null>(null);
+  const {
+    musicEnabled,
+    volume,
+    currentTrackName,
+    setMusicEnabled,
+    setVolume,
+  } = useAudioSettings();
+
+  useEffect(() => {
+    if (!isSettingsOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+
+      const clickedInsidePanel = settingsPanelRef.current?.contains(target);
+      const clickedButton = settingsButtonRef.current?.contains(target);
+
+      if (clickedInsidePanel || clickedButton) return;
+      setIsSettingsOpen(false);
+    };
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    return () => window.removeEventListener("pointerdown", handlePointerDown);
+  }, [isSettingsOpen]);
 
   return (
     <div
@@ -122,7 +156,6 @@ export default function GameToolbar({
       style={{ height: UI.toolbarHeight }}
     >
       <div className="relative h-full w-full">
-        {/* Back */}
         <motion.button
           type="button"
           whileTap={{ scale: 0.94 }}
@@ -143,7 +176,6 @@ export default function GameToolbar({
           />
         </motion.button>
 
-        {/* Name Box */}
         <div
           className="absolute"
           style={{
@@ -161,7 +193,6 @@ export default function GameToolbar({
           />
         </div>
 
-        {/* Avatar */}
         <div
           className="absolute"
           style={{
@@ -179,7 +210,6 @@ export default function GameToolbar({
           />
         </div>
 
-        {/* Player name */}
         <div
           className="absolute truncate leading-none"
           style={{
@@ -193,7 +223,6 @@ export default function GameToolbar({
           {displayPlayerName}
         </div>
 
-        {/* XP Bar */}
         <div
           className="absolute overflow-hidden rounded-full border border-[#8F4C1C] bg-[#7A3B17] shadow-[inset_0_1px_2px_rgba(255,236,181,0.24)]"
           style={{
@@ -209,7 +238,6 @@ export default function GameToolbar({
           />
         </div>
 
-        {/* XP Text */}
         <div
           className="absolute -translate-x-1/2 text-center leading-none text-[#FFF3D0]"
           style={{
@@ -223,7 +251,6 @@ export default function GameToolbar({
           {xp}/{xpToNext}
         </div>
 
-        {/* Level Star */}
         <div
           className="absolute"
           style={{
@@ -241,17 +268,16 @@ export default function GameToolbar({
           />
           <div
             className="absolute inset-0 flex items-center justify-center leading-none"
-          style={{
-            ...textStyle,
-            fontSize: UI.levelStar.fontSize,
-            paddingTop: 3,
-          }}
+            style={{
+              ...textStyle,
+              fontSize: UI.levelStar.fontSize,
+              paddingTop: 3,
+            }}
           >
             {level}
           </div>
         </div>
 
-        {/* Coin box */}
         <div
           className="absolute"
           style={{
@@ -269,7 +295,6 @@ export default function GameToolbar({
           />
         </div>
 
-        {/* Coin logo */}
         <div
           className="absolute"
           style={{
@@ -287,7 +312,6 @@ export default function GameToolbar({
           />
         </div>
 
-        {/* Coins text */}
         <div
           className="absolute -translate-x-1/2 -translate-y-1/2 text-center leading-none"
           style={{
@@ -300,11 +324,11 @@ export default function GameToolbar({
           {coins}
         </div>
 
-        {/* Settings */}
         <motion.button
+          ref={settingsButtonRef}
           type="button"
           whileTap={{ scale: 0.94 }}
-          onClick={onSettings}
+          onClick={() => setIsSettingsOpen((prev) => !prev)}
           className="pointer-events-auto absolute"
           style={{
             left: UI.settingsButton.x,
@@ -320,6 +344,78 @@ export default function GameToolbar({
             draggable={false}
           />
         </motion.button>
+
+        <AnimatePresence>
+          {isSettingsOpen ? (
+            <motion.div
+              ref={settingsPanelRef}
+              initial={{ opacity: 0, y: -10, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -8, scale: 0.96 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+              className="pointer-events-auto absolute rounded-[22px] border border-[rgba(255,222,173,0.22)] bg-[rgba(62,28,11,0.94)] px-4 py-4 shadow-[0_18px_28px_rgba(0,0,0,0.28)] backdrop-blur-sm"
+              style={{
+                left: UI.settingsPanel.x,
+                top: UI.settingsPanel.y,
+                width: UI.settingsPanel.w,
+              }}
+            >
+              <div
+                className="text-[13px] text-[#FFF2D8]"
+                style={{ fontFamily: "Fredoka, sans-serif", fontWeight: 700 }}
+              >
+                MUSIC SETTINGS
+              </div>
+
+              <div
+                className="mt-1 text-[10px] text-[#F7D5AE]"
+                style={{ fontFamily: "Fredoka, sans-serif", fontWeight: 600 }}
+              >
+                {currentTrackName}
+              </div>
+
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMusicEnabled(!musicEnabled)}
+                  className={`rounded-full px-3 py-1.5 text-[11px] ${
+                    musicEnabled
+                      ? "bg-[#54C75A] text-white"
+                      : "bg-[rgba(255,255,255,0.1)] text-[#FFE8C4]"
+                  }`}
+                  style={{ fontFamily: "Fredoka, sans-serif", fontWeight: 700 }}
+                >
+                  {musicEnabled ? "MUSIC ON" : "MUSIC OFF"}
+                </button>
+
+                <div
+                  className="text-[11px] text-[#FFE8C4]"
+                  style={{ fontFamily: "Fredoka, sans-serif", fontWeight: 700 }}
+                >
+                  {Math.round(volume * 100)}%
+                </div>
+              </div>
+
+              <div className="mt-3">
+                <div
+                  className="mb-1 text-[10px] text-[#F7D5AE]"
+                  style={{ fontFamily: "Fredoka, sans-serif", fontWeight: 700 }}
+                >
+                  VOLUME
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={Math.round(volume * 100)}
+                  onChange={(event) => setVolume(Number(event.target.value) / 100)}
+                  className="w-full accent-[#FFCF5B]"
+                />
+              </div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
       </div>
     </div>
   );
