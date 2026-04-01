@@ -50,6 +50,8 @@ import {
 import {
   EMPTY_GREENHOUSE_SEED_STOCK,
   EMPTY_PLAYER_MARKET_INGREDIENT_INVENTORY,
+  GREENHOUSE_INGREDIENTS,
+  MARKET_INGREDIENTS,
   PLAYER_MARKET_INVENTORY_IDS,
   type PlayerMarketInventoryId,
 } from './data/market';
@@ -139,20 +141,28 @@ const INITIAL_PLAYER_INVENTORY = {
   moonHerbSeed: 0,
   crystalSalt: 0,
 };
+const GREENHOUSE_HARVEST_NOODS_REWARD = 2;
+const LOW_INVENTORY_THRESHOLD = 5;
+const PLAYER_MARKET_INGREDIENT_IMAGE_BY_ID = new Map(
+  [...GREENHOUSE_INGREDIENTS, ...MARKET_INGREDIENTS].map((ingredient) => [
+    ingredient.id,
+    ingredient.image,
+  ])
+);
 const INITIAL_PLAYER_MARKET_INVENTORY = {
   ...EMPTY_PLAYER_MARKET_INGREDIENT_INVENTORY,
 };
 const STARTER_UNLOCKED_MARKET_INVENTORY = {
   ...INITIAL_PLAYER_MARKET_INVENTORY,
-  corn: 5,
-  bamboo: 10,
-  mushroom: 20,
-  garlic: 5,
-  egg: 5,
-  pork: 10,
-  chicken: 10,
-  tofu: 10,
-  shrimp: 20,
+  corn: 4,
+  bamboo: 200,
+  mushroom: 200,
+  garlic: 200,
+  egg: 200,
+  pork: 200,
+  chicken: 200,
+  tofu: 200,
+  shrimp: 200,
 };
 
 function readKnownDojoPlayers() {
@@ -539,6 +549,10 @@ function getMissingManagedIngredients(
   );
 }
 
+function getPlayerMarketIngredientImage(ingredientId: PlayerMarketInventoryId) {
+  return PLAYER_MARKET_INGREDIENT_IMAGE_BY_ID.get(ingredientId) ?? '';
+}
+
 function hasSameSyncedProgress(
   left: Pick<typeof INITIAL_PLAYER_STATS, 'level' | 'xp' | 'xpToNext' | 'coins'>,
   right: Pick<typeof INITIAL_PLAYER_STATS, 'level' | 'xp' | 'xpToNext' | 'coins'>
@@ -685,7 +699,7 @@ export default function App() {
   const tipJarUnlockLevel = getFirstRewardLevelByType('tipjar_unlock');
   const greenhouseUnlockLevel = getFirstRewardLevelByType('greenhouse_unlock');
   const marketUnlockLevel = getFirstRewardLevelByType('market_unlock');
-  const ingredientInventoryActivationLevel = Math.max(6, marketUnlockLevel);
+  const ingredientInventoryActivationLevel = 4;
   const isTipJarUnlocked =
     restaurantRewardFeaturesUnlocked ||
     playerStats.level >= tipJarUnlockLevel ||
@@ -714,21 +728,46 @@ export default function App() {
     [isIngredientInventoryActive, playerMarketInventory]
   );
   const hasCraftableRecipes = craftableRecipeIds.size > 0;
+  const hasLowInventoryNotification =
+    isIngredientInventoryActive &&
+    PLAYER_MARKET_INVENTORY_IDS.some(
+      (ingredientId) => playerMarketInventory[ingredientId] < LOW_INVENTORY_THRESHOLD
+    );
   const displayedRecipeChoices = useMemo(() => {
-    if (!isIngredientInventoryActive) {
-      return visibleRecipes;
-    }
+    return visibleRecipes.map((recipeCard) => {
+      if (!isIngredientInventoryActive) {
+        return {
+          ...recipeCard,
+          canCook: true,
+          missingIngredients: [],
+        };
+      }
 
-    const visibleCraftable = visibleRecipes.filter((recipe) =>
-      craftableRecipeIds.has(recipe.id)
-    );
-    const visibleIds = new Set(visibleCraftable.map((recipe) => recipe.id));
-    const fallbackRecipes = allRecipeCards.filter(
-      (recipe) => craftableRecipeIds.has(recipe.id) && !visibleIds.has(recipe.id)
-    );
+      const recipe = getRecipeById(recipeCard.id);
 
-    return [...visibleCraftable, ...fallbackRecipes].slice(0, 4);
-  }, [allRecipeCards, craftableRecipeIds, isIngredientInventoryActive, visibleRecipes]);
+      if (!recipe) {
+        return {
+          ...recipeCard,
+          canCook: true,
+          missingIngredients: [],
+        };
+      }
+
+      const missingIngredients = getMissingManagedIngredients(recipe, playerMarketInventory).map(
+        (ingredient) => ({
+          ingredientId: ingredient.ingredientId,
+          image: getPlayerMarketIngredientImage(ingredient.ingredientId),
+          missingQuantity: ingredient.quantity - playerMarketInventory[ingredient.ingredientId],
+        })
+      );
+
+      return {
+        ...recipeCard,
+        canCook: missingIngredients.length === 0,
+        missingIngredients,
+      };
+    });
+  }, [isIngredientInventoryActive, playerMarketInventory, visibleRecipes]);
   const canSyncProgressOnDojo =
     Boolean(cartridgeWallet) &&
     isCartridgeConnected &&
@@ -1348,13 +1387,6 @@ export default function App() {
 
   const handleEnterRestaurant = () => {
     if (restaurantServicePausedUntil && restaurantServicePausedUntil > Date.now()) {
-      return;
-    }
-
-    if (isIngredientInventoryActive && !hasCraftableRecipes) {
-      setRestaurantInventoryMessage(
-        'Stock insuffisant. Achete ou recolte des ingredients avant de relancer la journee.'
-      );
       return;
     }
 
@@ -2131,9 +2163,14 @@ export default function App() {
                     );
                   }}
                   onHarvestIngredient={(ingredientId, quantity) => {
+                    setPlayerStats((prev) => ({
+                      ...prev,
+                      coins: prev.coins + GREENHOUSE_HARVEST_NOODS_REWARD,
+                    }));
                     setPlayerMarketInventory((prev) =>
                       incrementMarketInventoryValue(prev, ingredientId, quantity)
                     );
+                    queueProgressSync('recolte_serre_noods');
                     queueIngredientInventorySync('recolte_serre');
                   }}
                 />
@@ -2178,7 +2215,8 @@ export default function App() {
                   serviceSlotsVisible={completedRestaurantDays > 0}
                   rewardFeaturesUnlocked={isTipJarUnlocked}
                   inventoryUnlocked={isIngredientInventoryActive}
-                  canStartCooking={!isIngredientInventoryActive || hasCraftableRecipes}
+                  canStartCooking
+                  showInventoryNotification={hasLowInventoryNotification}
                   inventoryStatusMessage={restaurantInventoryMessage}
                   servicePausedUntil={restaurantServicePausedUntil}
                   tipJarTokensAvailable={tipJarTokensAvailable}

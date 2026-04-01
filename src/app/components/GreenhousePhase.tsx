@@ -131,7 +131,7 @@ const UI = {
     countH: s(22),
     labelY: s(66),
   },
-  statusToast: { x: s(215), y: s(150) },
+  statusToast: { x: s(215), y: s(170) },
 } as const;
 
 const PLOT_LAYOUT = [
@@ -540,8 +540,8 @@ export default function GreenhousePhase({
     );
     setStatusMessage(
       language === 'fr'
-        ? `${cropLabel} recolte, +${harvestedYield} ingredient${harvestedYield > 1 ? 's' : ''} et +1 graine`
-        : `${cropLabel} harvested, +${harvestedYield} ingredient${harvestedYield > 1 ? 's' : ''} and +1 seed`
+        ? `${cropLabel} recolte, +${harvestedYield} ingredient${harvestedYield > 1 ? 's' : ''}, +1 graine et +2 Noods`
+        : `${cropLabel} harvested, +${harvestedYield} ingredient${harvestedYield > 1 ? 's' : ''}, +1 seed and +2 Noods`
     );
   };
 

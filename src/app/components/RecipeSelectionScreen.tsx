@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { Clock3, Star } from "lucide-react";
 import { useLanguage } from "../context/LanguageContext";
@@ -21,6 +21,12 @@ export interface RecipeSelectionItem {
   image: string;
   timer: number;
   reward: number;
+  canCook?: boolean;
+  missingIngredients?: {
+    ingredientId: string;
+    image: string;
+    missingQuantity: number;
+  }[];
 }
 
 type DisplayRecipeSelectionItem = RecipeSelectionItem & {
@@ -96,13 +102,17 @@ function RecipeCard({
   selected,
   onSelect,
   frame,
+  language,
 }: {
   recipe: DisplayRecipeSelectionItem;
   selected: boolean;
   onSelect: (id: string) => void;
   frame: RecipeFrame;
+  language: "fr" | "en";
 }) {
   const scale = frame.scale ?? 1;
+  const isCookable = recipe.canCook ?? true;
+  const missingIngredients = recipe.missingIngredients ?? [];
 
   return (
     <motion.button
@@ -133,12 +143,19 @@ function RecipeCard({
           style={{
             fontFamily: "Fredoka, sans-serif",
             fontSize: "0.92rem",
+            opacity: isCookable ? 1 : 0.76,
           }}
         >
           {recipe.displayName}
         </div>
 
-        <div className="mt-[1%] flex justify-center">
+        <div
+          className="mt-[1%] flex justify-center"
+          style={{
+            filter: isCookable ? "none" : "blur(3px) saturate(0.72)",
+            opacity: isCookable ? 1 : 0.45,
+          }}
+        >
           <img
             src={recipe.image}
             alt={recipe.displayName}
@@ -148,42 +165,85 @@ function RecipeCard({
         </div>
 
         <div className="mt-[10%] flex items-end justify-center gap-2">
-          <div
-            className="flex flex-col gap-1"
-            style={{
-              fontFamily: "Fredoka, sans-serif",
-              fontSize: "0.9rem",
-            }}
-          >
-            <div className="flex items-center gap-2 text-[#F7777D]">
-              <Clock3 size={15} />
-              <span>{formatTimer(recipe.timer)}</span>
-            </div>
-
-            <div className="flex items-center gap-2 text-[#F1A642]">
-              <Star size={15} fill="currentColor" />
-              <span>{recipe.reward} XP</span>
-            </div>
-          </div>
-
-          <div
-            className={`mb-1 flex h-9 w-9 items-center justify-center rounded-full no-border ${
-              selected
-                ? "border-[#5F8F13] bg-[#8CCB20]"
-                : "border-[#4D4138] bg-[#F8F3ED]"
-            }`}
-          >
-            {selected ? (
-              <span
-                className="text-xl text-white"
-                style={{ fontFamily: "Fredoka, sans-serif" }}
+          <div className="min-h-[44px] flex-1">
+            {isCookable ? (
+              <div
+                className="flex flex-col gap-1"
+                style={{
+                  fontFamily: "Fredoka, sans-serif",
+                  fontSize: "0.9rem",
+                }}
               >
-                ✓
-              </span>
-            ) : null}
+                <div className="flex items-center gap-2 text-[#F7777D]">
+                  <Clock3 size={15} />
+                  <span>{formatTimer(recipe.timer)}</span>
+                </div>
+
+                <div className="flex items-center gap-2 text-[#F1A642]">
+                  <Star size={15} fill="currentColor" />
+                  <span>{recipe.reward} XP</span>
+                </div>
+              </div>
+            ) : (
+              <div
+                className="flex min-h-[44px] flex-wrap items-center justify-center gap-x-2 gap-y-1"
+                style={{
+                  fontFamily: "Fredoka, sans-serif",
+                  fontSize: "0.72rem",
+                }}
+              >
+                {missingIngredients.map((ingredient) => (
+                  <div
+                    key={`${recipe.id}-${ingredient.ingredientId}`}
+                    className="flex items-center gap-1 rounded-full bg-[rgba(67,33,17,0.18)] px-1.5 py-1 text-[#5F3116]"
+                  >
+                    <img
+                      src={ingredient.image}
+                      alt={ingredient.ingredientId}
+                      className="h-5 w-5 object-contain select-none"
+                      draggable={false}
+                    />
+                    <span>x{ingredient.missingQuantity}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
+
+          {isCookable ? (
+            <div
+              className={`mb-1 flex h-9 w-9 items-center justify-center rounded-full no-border ${
+                selected
+                  ? "border-[#5F8F13] bg-[#8CCB20]"
+                  : "border-[#4D4138] bg-[#F8F3ED]"
+              }`}
+            >
+              {selected ? (
+                <span
+                  className="text-xl text-white"
+                  style={{ fontFamily: "Fredoka, sans-serif" }}
+                >
+                  ✓
+                </span>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </div>
+
+      {!isCookable ? (
+        <div
+          className="pointer-events-none absolute inset-x-[10%] top-[36%] rounded-full bg-[rgba(60,26,12,0.82)] px-2 py-1 text-center text-[#FFF0D8]"
+          style={{
+            fontFamily: "Fredoka, sans-serif",
+            fontSize: "0.62rem",
+            fontWeight: 700,
+            letterSpacing: "0.03em",
+          }}
+        >
+          {language === "fr" ? "STOCK INSUFFISANT" : "LOW STOCK"}
+        </div>
+      ) : null}
     </motion.button>
   );
 }
@@ -211,15 +271,11 @@ export default function RecipeSelectionScreen({
     () => recipes.find((recipe) => recipe.id === selectedId) ?? null,
     [recipes, selectedId]
   );
+  const canCookSelectedRecipe = Boolean(selectedRecipe && (selectedRecipe.canCook ?? true));
 
-  const ribbonImage =
-    language === "fr" ? ribbonImageFR : ribbonImageEN;
-
-  const inProgressText =
-    language === "fr" ? "En cours" : "In Progress";
-
-  const cookText =
-    language === "fr" ? "CUISINER" : "COOK";
+  const ribbonImage = language === "fr" ? ribbonImageFR : ribbonImageEN;
+  const inProgressText = language === "fr" ? "En cours" : "In Progress";
+  const cookText = language === "fr" ? "CUISINER" : "COOK";
 
   const displayRecipes = useMemo<DisplayRecipeSelectionItem[]>(
     () =>
@@ -261,7 +317,6 @@ export default function RecipeSelectionScreen({
               className="relative h-full w-full"
               style={{ paddingTop: UI.contentTop }}
             >
-              {/* Ruban */}
               <div
                 className="absolute"
                 style={{
@@ -279,7 +334,6 @@ export default function RecipeSelectionScreen({
                 />
               </div>
 
-              {/* Cartes recettes en placement manuel */}
               <div
                 className="absolute"
                 style={{
@@ -300,12 +354,12 @@ export default function RecipeSelectionScreen({
                       selected={selectedId === recipe.id}
                       onSelect={setSelectedId}
                       frame={frame}
+                      language={language}
                     />
                   );
                 })}
               </div>
 
-              {/* Footer */}
               <div
                 className="absolute rounded-[22px] border-[3px] border-[#7E431D] bg-[rgba(109,52,21,0.9)] px-4 py-2.5 shadow-[0_6px_0_#5D2C12]"
                 style={{
@@ -338,12 +392,11 @@ export default function RecipeSelectionScreen({
                 </div>
               </div>
 
-              {/* Bouton cuisiner */}
               <motion.button
-                whileTap={{ scale: 0.97, y: 2 }}
-                whileHover={{ scale: 1.02 }}
+                whileTap={selectedId && canCookSelectedRecipe ? { scale: 0.97, y: 2 } : {}}
+                whileHover={selectedId && canCookSelectedRecipe ? { scale: 1.02 } : {}}
                 onClick={() => selectedId && onCook?.(selectedId)}
-                disabled={!selectedId}
+                disabled={!selectedId || !canCookSelectedRecipe}
                 type="button"
                 className="absolute disabled:opacity-60"
                 style={{
@@ -372,7 +425,13 @@ export default function RecipeSelectionScreen({
                     letterSpacing: "0.04em",
                   }}
                 >
-                  {cookText}
+                  {!selectedId
+                    ? cookText
+                    : canCookSelectedRecipe
+                      ? cookText
+                      : language === "fr"
+                        ? "STOCK INSUFFISANT"
+                        : "LOW STOCK"}
                 </span>
               </motion.button>
             </div>

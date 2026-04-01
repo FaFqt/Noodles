@@ -28,6 +28,7 @@ interface RestaurantScreenProps {
   rewardFeaturesUnlocked?: boolean;
   inventoryUnlocked?: boolean;
   canStartCooking?: boolean;
+  showInventoryNotification?: boolean;
   inventoryStatusMessage?: string | null;
   servicePausedUntil?: number | null;
   tipJarTokensAvailable?: number;
@@ -73,9 +74,15 @@ const UI = {
   },
   inventoryButton: {
     x: s(14),
-    y: s(420),
+    y: s(460),
     w: s(124),
     h: s(45),
+  },
+  inventoryNotification: {
+    x: s(10),
+    y: s(425),
+    w: s(38),
+    h: s(38),
   },
   inventoryStatus: {
     x: s(40),
@@ -123,6 +130,7 @@ export default function NoodlesRestaurantScreen({
   rewardFeaturesUnlocked = false,
   inventoryUnlocked = false,
   canStartCooking = true,
+  showInventoryNotification = false,
   inventoryStatusMessage = null,
   servicePausedUntil = null,
   tipJarTokensAvailable = 0,
@@ -408,38 +416,66 @@ export default function NoodlesRestaurantScreen({
           ))}
 
           {inventoryUnlocked ? (
-            <motion.button
-              type="button"
-              whileTap={{ scale: 0.97, y: 2 }}
-              onClick={onOpenInventory}
-              className="absolute"
-              style={{
-                left: UI.inventoryButton.x,
-                top: UI.inventoryButton.y,
-                width: UI.inventoryButton.w,
-                height: UI.inventoryButton.h,
-              }}
-            >
-              <img
-                src={inventoryButtonAsset}
-                alt={language === "fr" ? "Inventaire" : "Inventory"}
-                className="h-full w-full object-fill"
-                draggable={false}
-              />
-              <span
-                className="absolute inset-0 flex items-center justify-center text-center text-[#FFFDF8]"
+            <>
+              {showInventoryNotification ? (
+                <motion.img
+                  src={notificationTipJarAsset}
+                  alt={language === "fr" ? "Alerte inventaire" : "Inventory alert"}
+                  className="absolute"
+                  style={{
+                    left: UI.inventoryNotification.x,
+                    top: UI.inventoryNotification.y,
+                    width: UI.inventoryNotification.w,
+                    height: UI.inventoryNotification.h,
+                  }}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{
+                    opacity: 1,
+                    scale: [1, 1.05, 1],
+                    y: [0, -4, 0],
+                  }}
+                  transition={{
+                    duration: 1.4,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                  draggable={false}
+                />
+              ) : null}
+
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.97, y: 2 }}
+                onClick={onOpenInventory}
+                className="absolute"
                 style={{
-                  fontFamily: "Fredoka, sans-serif",
-                  fontSize: "0.7rem",
-                  fontWeight: 700,
-                  letterSpacing: "0.03em",
-                  textShadow: "0 2px 8px rgba(0,0,0,0.34)",
-                  transform: "translate(8px, -2px)",
+                  left: UI.inventoryButton.x,
+                  top: UI.inventoryButton.y,
+                  width: UI.inventoryButton.w,
+                  height: UI.inventoryButton.h,
                 }}
               >
-                {language === "fr" ? "INVENTAIRE" : "INVENTORY"}
-              </span>
-            </motion.button>
+                <img
+                  src={inventoryButtonAsset}
+                  alt={language === "fr" ? "Inventaire" : "Inventory"}
+                  className="h-full w-full object-fill"
+                  draggable={false}
+                />
+                <span
+                  className="absolute inset-0 flex items-center justify-center text-center text-[#FFFDF8]"
+                  style={{
+                    fontFamily: "Fredoka, sans-serif",
+                    fontSize: "0.7rem",
+                    fontWeight: 700,
+                    letterSpacing: "0.03em",
+                    textShadow: "0 2px 8px rgba(0,0,0,0.34)",
+                    transform: "translate(8px, -2px)",
+                  }}
+                >
+                  {language === "fr" ? "INVENTAIRE" : "INVENTORY"}
+                </span>
+              </motion.button>
+            </>
           ) : null}
 
           {inventoryStatusMessage ? (

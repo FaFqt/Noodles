@@ -8,6 +8,7 @@ import seedDragonPepper from "../../assets/rewards/DragonPepper.png";
 import rewardFireChili from "../../assets/rewards/FireChili.png";
 import rewardMoonHerb from "../../assets/rewards/MoonHerb.png";
 import rewardToken from "../../assets/rewards/TokenRewards.png";
+import rewardMarket from "../../assets/rewards/RewardMarket.png";
 
 export interface PlayerStats {
   name: string;
@@ -81,7 +82,7 @@ const RANDOM_SEED_REWARD_COPY: Record<
 };
 
 export function getXpToNextLevel(level: number) {
-  return 100 + Math.max(0, level - 1) * 50;
+  return 100 + Math.max(0, level - 1) * 25;
 }
 
 export const LEVEL_REWARDS: LevelRewardDefinition[] = [
@@ -119,6 +120,16 @@ export const LEVEL_REWARDS: LevelRewardDefinition[] = [
     tipJarTokens: 16,
   },
   {
+    id: "level-4-greenhouse",
+    level: 4,
+    type: "greenhouse_unlock",
+    titleFr: "Serre débloquée",
+    titleEn: "Greenhouse unlocked",
+    descriptionFr: "La serre devient accessible dans le village.",
+    descriptionEn: "The greenhouse becomes accessible in the village.",
+    image: rewardGreenhouse,
+  },
+  {
     id: "level-4-corn-seed",
     level: 4,
     type: "seed",
@@ -142,16 +153,6 @@ export const LEVEL_REWARDS: LevelRewardDefinition[] = [
     tipJarTokens: 18,
   },
   {
-    id: "level-5-greenhouse",
-    level: 5,
-    type: "greenhouse_unlock",
-    titleFr: "Serre débloquée",
-    titleEn: "Greenhouse unlocked",
-    descriptionFr: "La serre devient accessible dans le village.",
-    descriptionEn: "The greenhouse becomes accessible in the village.",
-    image: rewardGreenhouse,
-  },
-  {
     id: "level-6-tipjar-tokens",
     level: 6,
     type: "tipjar_tokens",
@@ -170,7 +171,7 @@ export const LEVEL_REWARDS: LevelRewardDefinition[] = [
     titleEn: "Market unlocked",
     descriptionFr: "Le marche devient accessible dans le village.",
     descriptionEn: "The market becomes accessible in the village.",
-    image: rewardToken,
+    image: rewardMarket,
   },
   {
     id: "level-7-tipjar-tokens",
