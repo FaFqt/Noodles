@@ -154,7 +154,7 @@ const INITIAL_PLAYER_MARKET_INVENTORY = {
 };
 const STARTER_UNLOCKED_MARKET_INVENTORY = {
   ...INITIAL_PLAYER_MARKET_INVENTORY,
-  corn: 4,
+  corn: 10,
   bamboo: 200,
   mushroom: 200,
   garlic: 200,
