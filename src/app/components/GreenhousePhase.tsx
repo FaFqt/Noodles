@@ -49,6 +49,7 @@ const DESIGN_WIDTH = 430;
 const DESIGN_HEIGHT = 780;
 const DEFAULT_STORAGE_KEY = 'greenhouse-ui-state-v2:local';
 const SCALE = 1;
+const MAX_SEEDS_PER_PLANT = 2;
 const s = (value: number) => value * SCALE;
 
 export type GreenhouseCrop = GreenhouseIngredientId;
@@ -83,6 +84,10 @@ const INITIAL_PLOTS: GreenhousePlotState[] = Array.from({ length: 4 }, (_, index
 }));
 
 const DEFAULT_SEEDS: SeedInventory = EMPTY_GREENHOUSE_SEED_STOCK;
+
+function clampSeedCount(value: number) {
+  return Math.max(0, Math.min(MAX_SEEDS_PER_PLANT, value));
+}
 
 const UI = {
   titleCard: { x: s(44), y: s(92), w: s(342), h: s(88) },
@@ -235,8 +240,8 @@ function readStoredGreenhouseState(
         return {
           ...accumulator,
           [ingredient.id]: Number.isFinite(rawCount)
-            ? Math.max(0, Number(rawCount))
-            : initialSeedInventory[ingredient.id],
+            ? clampSeedCount(Number(rawCount))
+            : clampSeedCount(initialSeedInventory[ingredient.id]),
         };
       }, {} as SeedInventory),
     };
@@ -400,9 +405,8 @@ export default function GreenhousePhase({
   useEffect(() => {
     setGreenhouseState((prev) => {
       const nextSeeds = GREENHOUSE_INGREDIENTS.reduce((accumulator, ingredient) => {
-        accumulator[ingredient.id] = Math.max(
-          prev.seeds[ingredient.id],
-          initialSeedInventory[ingredient.id]
+        accumulator[ingredient.id] = clampSeedCount(
+          Math.max(prev.seeds[ingredient.id], initialSeedInventory[ingredient.id])
         );
         return accumulator;
       }, {} as SeedInventory);
@@ -459,7 +463,7 @@ export default function GreenhousePhase({
     count: greenhouseState.seeds[ingredient.id],
     image: ingredient.image,
     badge: getRarityBadge(ingredient.rarity),
-  }));
+  })).filter((ingredient) => ingredient.count > 0);
 
   const inventoryPlotLabel = inventoryPlotId
     ? `${language === 'fr' ? 'Parcelle' : 'Plot'} ${inventoryPlotId.split('-')[1]}`
@@ -513,7 +517,7 @@ export default function GreenhousePhase({
     setGreenhouseState((prev) => ({
       seeds: {
         ...prev.seeds,
-        [harvestedCrop]: prev.seeds[harvestedCrop] + 1,
+        [harvestedCrop]: clampSeedCount(prev.seeds[harvestedCrop] + 1),
       },
       plots: prev.plots.map((plot) =>
         plot.id === plotId

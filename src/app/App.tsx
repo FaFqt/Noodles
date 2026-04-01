@@ -142,6 +142,7 @@ const INITIAL_PLAYER_INVENTORY = {
   moonHerbSeed: 0,
   crystalSalt: 0,
 };
+const MAX_SEEDS_PER_PLANT = 2;
 const GREENHOUSE_HARVEST_NOODS_REWARD = 2;
 const LOW_INVENTORY_THRESHOLD = 5;
 const PLAYER_MARKET_INGREDIENT_IMAGE_BY_ID = new Map(
@@ -156,14 +157,14 @@ const INITIAL_PLAYER_MARKET_INVENTORY = {
 const STARTER_UNLOCKED_MARKET_INVENTORY = {
   ...INITIAL_PLAYER_MARKET_INVENTORY,
   corn: 10,
-  bamboo: 200,
-  mushroom: 200,
-  garlic: 200,
-  egg: 200,
-  pork: 200,
-  chicken: 200,
-  tofu: 200,
-  shrimp: 200,
+  bamboo: 100,
+  mushroom: 100,
+  garlic: 100,
+  egg: 100,
+  pork: 100,
+  chicken: 100,
+  tofu: 100,
+  shrimp: 100,
 };
 
 function readKnownDojoPlayers() {
@@ -201,6 +202,24 @@ interface WalletProgressState {
   playerStats: typeof INITIAL_PLAYER_STATS;
   hasPendingProgressSync: boolean;
   updatedAt: number;
+}
+
+function clampSeedCount(value: number) {
+  return Math.max(0, Math.min(MAX_SEEDS_PER_PLANT, value));
+}
+
+function normalizePlayerInventory(inventory: typeof INITIAL_PLAYER_INVENTORY) {
+  return {
+    ...inventory,
+    cornSeed: clampSeedCount(inventory.cornSeed),
+    bambooSeed: clampSeedCount(inventory.bambooSeed),
+    mushroomSeed: clampSeedCount(inventory.mushroomSeed),
+    garlicSeed: clampSeedCount(inventory.garlicSeed),
+    dragonPepperSeed: clampSeedCount(inventory.dragonPepperSeed),
+    fireChiliSeed: clampSeedCount(inventory.fireChiliSeed),
+    moonHerbSeed: clampSeedCount(inventory.moonHerbSeed),
+    crystalSalt: Math.max(0, inventory.crystalSalt),
+  };
 }
 
 function getWalletRewardStateStorageKey(walletAddress: string) {
@@ -242,32 +261,32 @@ function readWalletRewardState(walletAddress: string): WalletRewardState | null 
         ? Math.max(0, Number(parsed.tipJarTokensAvailable))
         : 0,
       tipJarCollected: Boolean(parsed.tipJarCollected),
-      inventory: {
+      inventory: normalizePlayerInventory({
         cornSeed: Number.isFinite(parsed.inventory?.cornSeed)
-          ? Math.max(0, Number(parsed.inventory?.cornSeed))
+          ? Number(parsed.inventory?.cornSeed)
           : 0,
         bambooSeed: Number.isFinite(parsed.inventory?.bambooSeed)
-          ? Math.max(0, Number(parsed.inventory?.bambooSeed))
+          ? Number(parsed.inventory?.bambooSeed)
           : 0,
         mushroomSeed: Number.isFinite(parsed.inventory?.mushroomSeed)
-          ? Math.max(0, Number(parsed.inventory?.mushroomSeed))
+          ? Number(parsed.inventory?.mushroomSeed)
           : 0,
         garlicSeed: Number.isFinite(parsed.inventory?.garlicSeed)
-          ? Math.max(0, Number(parsed.inventory?.garlicSeed))
+          ? Number(parsed.inventory?.garlicSeed)
           : 0,
         dragonPepperSeed: Number.isFinite(parsed.inventory?.dragonPepperSeed)
-          ? Math.max(0, Number(parsed.inventory?.dragonPepperSeed))
+          ? Number(parsed.inventory?.dragonPepperSeed)
           : 0,
         fireChiliSeed: Number.isFinite(parsed.inventory?.fireChiliSeed)
-          ? Math.max(0, Number(parsed.inventory?.fireChiliSeed))
+          ? Number(parsed.inventory?.fireChiliSeed)
           : 0,
         moonHerbSeed: Number.isFinite(parsed.inventory?.moonHerbSeed)
-          ? Math.max(0, Number(parsed.inventory?.moonHerbSeed))
+          ? Number(parsed.inventory?.moonHerbSeed)
           : 0,
         crystalSalt: Number.isFinite(parsed.inventory?.crystalSalt)
           ? Math.max(0, Number(parsed.inventory?.crystalSalt))
           : 0,
-      },
+      }),
       marketInventory: PLAYER_MARKET_INVENTORY_IDS.reduce((accumulator, ingredientId) => {
         accumulator[ingredientId] = Number.isFinite(parsed.marketInventory?.[ingredientId])
           ? Math.max(0, Number(parsed.marketInventory?.[ingredientId]))
@@ -381,39 +400,42 @@ function incrementInventoryValue(
   amount: number
 ) {
   if (crop === 'corn') {
-    return { ...inventory, cornSeed: inventory.cornSeed + amount };
+    return { ...inventory, cornSeed: clampSeedCount(inventory.cornSeed + amount) };
   }
 
   if (crop === 'bamboo') {
-    return { ...inventory, bambooSeed: inventory.bambooSeed + amount };
+    return { ...inventory, bambooSeed: clampSeedCount(inventory.bambooSeed + amount) };
   }
 
   if (crop === 'mushroom') {
-    return { ...inventory, mushroomSeed: inventory.mushroomSeed + amount };
+    return {
+      ...inventory,
+      mushroomSeed: clampSeedCount(inventory.mushroomSeed + amount),
+    };
   }
 
   if (crop === 'garlic') {
-    return { ...inventory, garlicSeed: inventory.garlicSeed + amount };
+    return { ...inventory, garlicSeed: clampSeedCount(inventory.garlicSeed + amount) };
   }
 
   if (crop === 'dragonpepper') {
     return {
       ...inventory,
-      dragonPepperSeed: inventory.dragonPepperSeed + amount,
+      dragonPepperSeed: clampSeedCount(inventory.dragonPepperSeed + amount),
     };
   }
 
   if (crop === 'firechili') {
     return {
       ...inventory,
-      fireChiliSeed: inventory.fireChiliSeed + amount,
+      fireChiliSeed: clampSeedCount(inventory.fireChiliSeed + amount),
     };
   }
 
   if (crop === 'moonherb') {
     return {
       ...inventory,
-      moonHerbSeed: inventory.moonHerbSeed + amount,
+      moonHerbSeed: clampSeedCount(inventory.moonHerbSeed + amount),
     };
   }
 
@@ -428,13 +450,13 @@ function getGreenhouseSeedInventoryFromPlayerInventory(
 ) {
   return {
     ...EMPTY_GREENHOUSE_SEED_STOCK,
-    corn: inventory.cornSeed,
-    bamboo: inventory.bambooSeed,
-    mushroom: inventory.mushroomSeed,
-    garlic: inventory.garlicSeed,
-    dragonpepper: inventory.dragonPepperSeed,
-    firechili: inventory.fireChiliSeed,
-    moonherb: inventory.moonHerbSeed,
+    corn: clampSeedCount(inventory.cornSeed),
+    bamboo: clampSeedCount(inventory.bambooSeed),
+    mushroom: clampSeedCount(inventory.mushroomSeed),
+    garlic: clampSeedCount(inventory.garlicSeed),
+    dragonpepper: clampSeedCount(inventory.dragonPepperSeed),
+    firechili: clampSeedCount(inventory.fireChiliSeed),
+    moonherb: clampSeedCount(inventory.moonHerbSeed),
   };
 }
 
@@ -442,27 +464,38 @@ function syncRewardSeedInventoryFromGreenhouse(
   inventory: typeof INITIAL_PLAYER_INVENTORY,
   greenhouseInventory: typeof EMPTY_GREENHOUSE_SEED_STOCK
 ) {
+  const nextGreenhouseInventory = {
+    ...greenhouseInventory,
+    corn: clampSeedCount(greenhouseInventory.corn),
+    bamboo: clampSeedCount(greenhouseInventory.bamboo),
+    mushroom: clampSeedCount(greenhouseInventory.mushroom),
+    garlic: clampSeedCount(greenhouseInventory.garlic),
+    dragonpepper: clampSeedCount(greenhouseInventory.dragonpepper),
+    firechili: clampSeedCount(greenhouseInventory.firechili),
+    moonherb: clampSeedCount(greenhouseInventory.moonherb),
+  };
+
   if (
-    inventory.cornSeed === greenhouseInventory.corn &&
-    inventory.bambooSeed === greenhouseInventory.bamboo &&
-    inventory.mushroomSeed === greenhouseInventory.mushroom &&
-    inventory.garlicSeed === greenhouseInventory.garlic &&
-    inventory.dragonPepperSeed === greenhouseInventory.dragonpepper &&
-    inventory.fireChiliSeed === greenhouseInventory.firechili &&
-    inventory.moonHerbSeed === greenhouseInventory.moonherb
+    inventory.cornSeed === nextGreenhouseInventory.corn &&
+    inventory.bambooSeed === nextGreenhouseInventory.bamboo &&
+    inventory.mushroomSeed === nextGreenhouseInventory.mushroom &&
+    inventory.garlicSeed === nextGreenhouseInventory.garlic &&
+    inventory.dragonPepperSeed === nextGreenhouseInventory.dragonpepper &&
+    inventory.fireChiliSeed === nextGreenhouseInventory.firechili &&
+    inventory.moonHerbSeed === nextGreenhouseInventory.moonherb
   ) {
     return inventory;
   }
 
   return {
     ...inventory,
-    cornSeed: greenhouseInventory.corn,
-    bambooSeed: greenhouseInventory.bamboo,
-    mushroomSeed: greenhouseInventory.mushroom,
-    garlicSeed: greenhouseInventory.garlic,
-    dragonPepperSeed: greenhouseInventory.dragonpepper,
-    fireChiliSeed: greenhouseInventory.firechili,
-    moonHerbSeed: greenhouseInventory.moonherb,
+    cornSeed: nextGreenhouseInventory.corn,
+    bambooSeed: nextGreenhouseInventory.bamboo,
+    mushroomSeed: nextGreenhouseInventory.mushroom,
+    garlicSeed: nextGreenhouseInventory.garlic,
+    dragonPepperSeed: nextGreenhouseInventory.dragonpepper,
+    fireChiliSeed: nextGreenhouseInventory.firechili,
+    moonHerbSeed: nextGreenhouseInventory.moonherb,
   };
 }
 
@@ -837,7 +870,7 @@ export default function App() {
       const inferredIngredientInventoryInitialized =
         Boolean(storedState?.ingredientInventoryInitialized) ||
         Boolean(onchainSnapshot?.unlocks?.ingredientInventoryReady);
-      const nextInventory = {
+      const nextInventory = normalizePlayerInventory({
         cornSeed: Math.max(
           storedState?.inventory.cornSeed ?? 0,
           onchainSnapshot?.inventory?.cornSeed ?? 0
@@ -858,7 +891,7 @@ export default function App() {
           storedState?.inventory.crystalSalt ?? 0,
           onchainSnapshot?.inventory?.crystalSalt ?? 0
         ),
-      };
+      });
       const nextMarketInventory =
         storedState?.hasPendingIngredientInventorySync || !onchainMarketInventory
           ? storedState?.marketInventory ?? INITIAL_PLAYER_MARKET_INVENTORY
