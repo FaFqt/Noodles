@@ -224,6 +224,7 @@ export function computeSatisfactionResult(params: {
   totalTimeSpentSeconds: number;
   targetTotalTimeSeconds: number;
   baseXp: number;
+  brothXpPenalty?: number;
   didExpire?: boolean;
 }) {
   const {
@@ -234,6 +235,7 @@ export function computeSatisfactionResult(params: {
     totalTimeSpentSeconds,
     targetTotalTimeSeconds,
     baseXp,
+    brothXpPenalty = 0,
     didExpire = false,
   } = params;
 
@@ -262,12 +264,12 @@ export function computeSatisfactionResult(params: {
 
   if (timeRatio <= 0.75) {
     timeScore = 100;
+  } else if (timeRatio <= 0.9) {
+    timeScore = 100 - (timeRatio - 0.75) * 133.34;
   } else if (timeRatio <= 1) {
-    timeScore = 100 - (timeRatio - 0.75) * 80;
-  } else if (timeRatio <= 1.25) {
-    timeScore = 80 - (timeRatio - 1) * 120;
+    timeScore = 80 - (timeRatio - 0.9) * 300;
   } else {
-    timeScore = 50 - (timeRatio - 1.25) * 120;
+    timeScore = 50 - (timeRatio - 1) * 200;
   }
 
   timeScore = clamp(timeScore, 10, 100);
@@ -275,9 +277,16 @@ export function computeSatisfactionResult(params: {
   // score final
   const finalQuality = clamp(executionScore * 0.8 + timeScore * 0.2, 0, 100);
 
-  // XP proportionnel
+  // XP proportionnel + malus explicites
   const xpMultiplier = clamp(finalQuality / 100, 0.2, 1.2);
-  const earnedXp = Math.max(1, round(baseXp * xpMultiplier));
+  const timeXpPenalty =
+    timeRatio <= 0.75
+      ? 0
+      : round(baseXp * clamp(((timeRatio - 0.75) / 0.25) * 0.2, 0, 0.2));
+  const earnedXp = Math.max(
+    1,
+    round(baseXp * xpMultiplier) - Math.max(0, brothXpPenalty) - timeXpPenalty
+  );
 
   const tier = getTierFromQuality(finalQuality);
 

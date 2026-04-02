@@ -78,6 +78,17 @@ const UI = {
     { x: 192, y: 214, w: 176, h: 198, scale: 1 },
   ] as RecipeFrame[],
 
+  recipeCard: {
+    time: {
+      left: "30%",
+      bottom: "25%",
+    },
+    xp: {
+      left: "30%",
+      bottom: "15%",
+    },
+  },
+
   footer: {
     x: 30,
     y: 580,
@@ -164,55 +175,40 @@ function RecipeCard({
           />
         </div>
 
-        <div className="mt-[10%] flex items-end justify-center gap-2">
-          <div className="min-h-[44px] flex-1">
-            {isCookable ? (
-              <div
-                className="flex flex-col gap-1"
-                style={{
-                  fontFamily: "Fredoka, sans-serif",
-                  fontSize: "0.9rem",
-                }}
-              >
-                <div className="flex items-center gap-2 text-[#F7777D]">
-                  <Clock3 size={15} />
-                  <span>{formatTimer(recipe.timer)}</span>
-                </div>
-
-                <div className="flex items-center gap-2 text-[#F1A642]">
-                  <Star size={15} fill="currentColor" />
-                  <span>{recipe.reward} XP</span>
-                </div>
-              </div>
-            ) : (
-              <div
-                className="flex min-h-[44px] flex-wrap items-center justify-center gap-x-2 gap-y-1"
-                style={{
-                  fontFamily: "Fredoka, sans-serif",
-                  fontSize: "0.72rem",
-                }}
-              >
-                {missingIngredients.map((ingredient) => (
-                  <div
-                    key={`${recipe.id}-${ingredient.ingredientId}`}
-                    className="flex items-center gap-1 rounded-full bg-[rgba(67,33,17,0.18)] px-1.5 py-1 text-[#5F3116]"
-                  >
-                    <img
-                      src={ingredient.image}
-                      alt={ingredient.ingredientId}
-                      className="h-5 w-5 object-contain select-none"
-                      draggable={false}
-                    />
-                    <span>x{ingredient.missingQuantity}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {isCookable ? (
+        {isCookable ? (
+          <>
             <div
-              className={`mb-1 flex h-9 w-9 items-center justify-center rounded-full no-border ${
+              className="absolute"
+              style={{
+                left: UI.recipeCard.time.left,
+                bottom: UI.recipeCard.time.bottom,
+                fontFamily: "Fredoka, sans-serif",
+                fontSize: "0.9rem",
+              }}
+            >
+              <div className="flex items-center gap-2 text-[#F7777D]">
+                <Clock3 size={15} />
+                <span>{formatTimer(recipe.timer)}</span>
+              </div>
+            </div>
+
+            <div
+              className="absolute"
+              style={{
+                left: UI.recipeCard.xp.left,
+                bottom: UI.recipeCard.xp.bottom,
+                fontFamily: "Fredoka, sans-serif",
+                fontSize: "0.9rem",
+              }}
+            >
+              <div className="flex items-center gap-2 text-[#F1A642]">
+                <Star size={15} fill="currentColor" />
+                <span>{recipe.reward} XP</span>
+              </div>
+            </div>
+
+            <div
+              className={`absolute right-[10%] bottom-[11%] flex h-9 w-9 items-center justify-center rounded-full no-border ${
                 selected
                   ? "border-[#5F8F13] bg-[#8CCB20]"
                   : "border-[#4D4138] bg-[#F8F3ED]"
@@ -227,8 +223,31 @@ function RecipeCard({
                 </span>
               ) : null}
             </div>
-          ) : null}
-        </div>
+          </>
+        ) : (
+          <div
+            className="absolute inset-x-[8%] bottom-[10%] flex min-h-[44px] flex-wrap items-center justify-center gap-x-2 gap-y-1"
+            style={{
+              fontFamily: "Fredoka, sans-serif",
+              fontSize: "0.72rem",
+            }}
+          >
+            {missingIngredients.map((ingredient) => (
+              <div
+                key={`${recipe.id}-${ingredient.ingredientId}`}
+                className="flex items-center gap-1 rounded-full bg-[rgba(67,33,17,0.18)] px-1.5 py-1 text-[#5F3116]"
+              >
+                <img
+                  src={ingredient.image}
+                  alt={ingredient.ingredientId}
+                  className="h-5 w-5 object-contain select-none"
+                  draggable={false}
+                />
+                <span>x{ingredient.missingQuantity}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {!isCookable ? (

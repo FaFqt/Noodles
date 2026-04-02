@@ -599,6 +599,20 @@ function hasSameSyncedProgress(
   );
 }
 
+function getRecipeTimeLimitSecondsForLevel(level: number) {
+  return Math.max(30, 60 - (Math.max(1, level) - 1) * 5);
+}
+
+function buildRecipeSelectionCard(recipe: Recipe, playerLevel: number): RecipeSelectionItem {
+  return {
+    id: recipe.id,
+    name: recipe.name,
+    image: RECIPE_IMAGES[recipe.id],
+    timer: getRecipeTimeLimitSecondsForLevel(playerLevel),
+    reward: recipe.reward,
+  };
+}
+
 export default function App() {
   const RESTAURANT_SERVICE_COOLDOWN_MS = 4 * 60 * 1000;
   const isMobile = useIsMobile();
@@ -627,12 +641,14 @@ export default function App() {
   const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
   const [cookingPhaseQuality, setCookingPhaseQuality] = useState<number | null>(null);
   const [brothStirQuality, setBrothStirQuality] = useState<number | null>(null);
+  const [brothStirXpPenalty, setBrothStirXpPenalty] = useState(0);
   const [cookingTimeLeftSeconds, setCookingTimeLeftSeconds] = useState<number | null>(null);
   const [completedOrder, setCompletedOrder] = useState<{
     order: Order;
     quality: number;
     ingredientQuality: number;
     brothQuality: number;
+    brothXpPenalty: number;
     toppingQuality: number;
     serviceQuality: number;
     totalTimeSpentSeconds: number;
@@ -705,26 +721,13 @@ export default function App() {
   const hasPendingIngredientInventorySyncRef = useRef(hasPendingIngredientInventorySync);
 
   const allRecipeCards: RecipeSelectionItem[] = useMemo(
-    () =>
-      RECIPES.map((recipe) => ({
-        id: recipe.id,
-        name: recipe.name,
-        image: RECIPE_IMAGES[recipe.id],
-        timer: recipe.timer,
-        reward: recipe.reward,
-      })),
-    []
+    () => RECIPES.map((recipe) => buildRecipeSelectionCard(recipe, playerStats.level)),
+    [playerStats.level]
   );
 
   const [visibleRecipes, setVisibleRecipes] = useState<RecipeSelectionItem[]>(
     shuffleArray(
-      RECIPES.map((recipe) => ({
-        id: recipe.id,
-        name: recipe.name,
-        image: RECIPE_IMAGES[recipe.id],
-        timer: recipe.timer,
-        reward: recipe.reward,
-      }))
+      RECIPES.map((recipe) => buildRecipeSelectionCard(recipe, INITIAL_PLAYER_STATS.level))
     ).slice(0, 4)
   );
   const displayPlayerName = playerWallet?.profileName ?? playerStats.name;
@@ -807,6 +810,11 @@ export default function App() {
     isCartridgeConnected &&
     Boolean(playerWallet?.dojoRegistered) &&
     hasHydratedOnchainProgress;
+
+  useEffect(() => {
+    const recipeCardById = new Map(allRecipeCards.map((recipe) => [recipe.id, recipe]));
+    setVisibleRecipes((prev) => prev.map((recipe) => recipeCardById.get(recipe.id) ?? recipe));
+  }, [allRecipeCards]);
 
   useEffect(() => {
     if (!isIngredientInventoryActive || ingredientInventoryInitialized) return;
@@ -1532,8 +1540,12 @@ export default function App() {
       queueIngredientInventorySync('consommation_recette');
     }
 
-    setSelectedRecipe(recipe);
+    setSelectedRecipe({
+      ...recipe,
+      timer: order.timeLeft,
+    });
     setSelectedOrder(order);
+    setBrothStirXpPenalty(0);
     setGameState('cooking');
   };
 
@@ -1553,6 +1565,7 @@ export default function App() {
     stirProgress: number;
   }) => {
     setBrothStirQuality(result.quality);
+    setBrothStirXpPenalty(result.xpPenalty);
     setCookingTimeLeftSeconds(result.remainingTimeSeconds);
     setGameState('service');
   };
@@ -1585,6 +1598,7 @@ export default function App() {
       quality: finalQuality,
       ingredientQuality: cookingPhaseQuality ?? 0,
       brothQuality: brothStirQuality ?? 0,
+      brothXpPenalty: brothStirXpPenalty,
       toppingQuality: result.quality,
       serviceQuality: result.quality,
       totalTimeSpentSeconds,
@@ -1622,6 +1636,7 @@ export default function App() {
       totalTimeSpentSeconds: completedOrder.totalTimeSpentSeconds,
       targetTotalTimeSeconds: completedOrder.targetTotalTimeSeconds,
       baseXp: completedOrder.order.reward,
+      brothXpPenalty: completedOrder.brothXpPenalty,
       didExpire: completedOrder.didExpire,
     });
     const finalRewardQuality = satisfactionResult.finalQuality;
@@ -1673,6 +1688,7 @@ export default function App() {
     setSelectedRecipe(null);
     setCookingPhaseQuality(null);
     setBrothStirQuality(null);
+    setBrothStirXpPenalty(0);
     setCookingTimeLeftSeconds(null);
 
     if (nextCompletedServices >= SERVICES_PER_DAY) {
