@@ -2213,6 +2213,18 @@ export default function App() {
                       syncRewardSeedInventoryFromGreenhouse(prev, seedInventory)
                     );
                   }}
+                  onUnlockPlot={(_plotId, cost) => {
+                    if (playerStats.coins < cost) {
+                      return false;
+                    }
+
+                    setPlayerStats((prev) => ({
+                      ...prev,
+                      coins: prev.coins - cost,
+                    }));
+                    queueProgressSync('deblocage_parcelle_serre');
+                    return true;
+                  }}
                   onHarvestIngredient={(ingredientId, quantity) => {
                     setPlayerStats((prev) => ({
                       ...prev,

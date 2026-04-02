@@ -75,6 +75,7 @@ interface GreenhousePhaseProps {
   initialSeedInventory?: SeedInventory;
   onSeedInventoryChange?: (inventory: SeedInventory) => void;
   onHarvestIngredient?: (ingredientId: PlayerMarketInventoryId, quantity: number) => void;
+  onUnlockPlot?: (plotId: string, cost: number) => boolean;
 }
 
 const INITIAL_PLOTS: GreenhousePlotState[] = Array.from({ length: 4 }, (_, index) => ({
@@ -82,6 +83,11 @@ const INITIAL_PLOTS: GreenhousePlotState[] = Array.from({ length: 4 }, (_, index
   crop: null,
   plantedAt: null,
 }));
+const DEFAULT_UNLOCKED_PLOT_IDS = ['plot-1', 'plot-2'] as const;
+const UNLOCKABLE_PLOT_CONFIG = {
+  'plot-3': { label: 'Plot 3', levelRequired: 6, cost: 55 },
+  'plot-4': { label: 'Plot 4', levelRequired: 10, cost: 105 },
+} as const;
 
 const DEFAULT_SEEDS: SeedInventory = EMPTY_GREENHOUSE_SEED_STOCK;
 
@@ -138,6 +144,14 @@ const UI = {
   },
   statusToast: { x: s(215), y: s(170) },
 } as const;
+
+function isPlotUnlockedByDefault(plotId: string) {
+  return DEFAULT_UNLOCKED_PLOT_IDS.includes(plotId as (typeof DEFAULT_UNLOCKED_PLOT_IDS)[number]);
+}
+
+function getUnlockablePlotConfig(plotId: string) {
+  return UNLOCKABLE_PLOT_CONFIG[plotId as keyof typeof UNLOCKABLE_PLOT_CONFIG] ?? null;
+}
 
 const PLOT_LAYOUT = [
   { id: 'plot-1', x: UI.plotLayout[0].x, y: UI.plotLayout[0].y },
@@ -202,6 +216,7 @@ function readStoredGreenhouseState(
   if (typeof window === 'undefined') {
     return {
       plots: INITIAL_PLOTS,
+      unlockedPlotIds: [...DEFAULT_UNLOCKED_PLOT_IDS],
       seeds: initialSeedInventory,
     };
   }
@@ -210,6 +225,7 @@ function readStoredGreenhouseState(
   if (!rawValue) {
     return {
       plots: INITIAL_PLOTS,
+      unlockedPlotIds: [...DEFAULT_UNLOCKED_PLOT_IDS],
       seeds: initialSeedInventory,
     };
   }
@@ -218,7 +234,13 @@ function readStoredGreenhouseState(
     const parsed = JSON.parse(rawValue) as {
       plots?: GreenhousePlotState[];
       seeds?: Partial<SeedInventory>;
+      unlockedPlotIds?: string[];
     };
+
+    const unlockedPlotIds = INITIAL_PLOTS.filter((plot) => {
+      if (isPlotUnlockedByDefault(plot.id)) return true;
+      return parsed.unlockedPlotIds?.includes(plot.id) ?? false;
+    }).map((plot) => plot.id);
 
     const plots = INITIAL_PLOTS.map((plot) => {
       const storedPlot = parsed.plots?.find((item) => item.id === plot.id);
@@ -235,6 +257,7 @@ function readStoredGreenhouseState(
 
     return {
       plots,
+      unlockedPlotIds,
       seeds: GREENHOUSE_INGREDIENTS.reduce((accumulator, ingredient) => {
         const rawCount = parsed.seeds?.[ingredient.id];
         return {
@@ -248,6 +271,7 @@ function readStoredGreenhouseState(
   } catch {
     return {
       plots: INITIAL_PLOTS,
+      unlockedPlotIds: [...DEFAULT_UNLOCKED_PLOT_IDS],
       seeds: initialSeedInventory,
     };
   }
@@ -365,6 +389,7 @@ export default function GreenhousePhase({
   initialSeedInventory = DEFAULT_SEEDS,
   onSeedInventoryChange,
   onHarvestIngredient,
+  onUnlockPlot,
 }: GreenhousePhaseProps) {
   const { language } = useLanguage();
   const [now, setNow] = useState(() => Date.now());
@@ -374,6 +399,7 @@ export default function GreenhousePhase({
   const [greenhouseState, setGreenhouseState] = useState(() =>
     readStoredGreenhouseState(storageKey, initialSeedInventory)
   );
+  const unlockedPlotIds = greenhouseState.unlockedPlotIds ?? [...DEFAULT_UNLOCKED_PLOT_IDS];
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -390,6 +416,7 @@ export default function GreenhousePhase({
       storageKey,
       JSON.stringify({
         plots: greenhouseState.plots,
+        unlockedPlotIds: greenhouseState.unlockedPlotIds,
         seeds: greenhouseState.seeds,
       })
     );
@@ -433,13 +460,17 @@ export default function GreenhousePhase({
       PLOT_LAYOUT.map((layout) => {
         const plot =
           greenhouseState.plots.find((item) => item.id === layout.id) ?? INITIAL_PLOTS[0];
+        const unlockConfig = getUnlockablePlotConfig(layout.id);
+        const isUnlocked = unlockedPlotIds.includes(layout.id);
         return {
           ...layout,
           plot,
+          unlockConfig,
+          isUnlocked,
           visual: getPlotVisual(plot, now),
         };
       }),
-    [greenhouseState.plots, now]
+    [greenhouseState.plots, unlockedPlotIds, now]
   );
 
   const inventoryPlot =
@@ -471,16 +502,19 @@ export default function GreenhousePhase({
 
   const handleOpenInventory = (plotId: string) => {
     const plot = greenhouseState.plots.find((item) => item.id === plotId);
-    if (!plot || plot.crop) return;
+    const isUnlocked = unlockedPlotIds.includes(plotId);
+    if (!plot || plot.crop || !isUnlocked) return;
     setSelectedPlotId(plotId);
     setInventoryPlotId(plotId);
   };
 
   const handlePlantSeed = (plotId: string, crop: GreenhouseCrop) => {
     const plot = greenhouseState.plots.find((item) => item.id === plotId);
-    if (!plot || plot.crop || greenhouseState.seeds[crop] <= 0) return;
+    const isUnlocked = unlockedPlotIds.includes(plotId);
+    if (!plot || plot.crop || !isUnlocked || greenhouseState.seeds[crop] <= 0) return;
 
     setGreenhouseState((prev) => ({
+      ...prev,
       seeds: {
         ...prev.seeds,
         [crop]: Math.max(0, prev.seeds[crop] - 1),
@@ -504,8 +538,9 @@ export default function GreenhousePhase({
 
   const handleHarvest = (plotId: string) => {
     const plot = greenhouseState.plots.find((item) => item.id === plotId);
+    const isUnlocked = unlockedPlotIds.includes(plotId);
     const plotVisual = plot ? getPlotVisual(plot, Date.now()) : null;
-    if (!plot || !plot.crop || !plotVisual?.isReady) return;
+    if (!plot || !isUnlocked || !plot.crop || !plotVisual?.isReady) return;
 
     const harvestedCrop = plot.crop;
     const harvestedIngredient = GREENHOUSE_INGREDIENTS.find(
@@ -515,6 +550,7 @@ export default function GreenhousePhase({
       ? Math.max(1, Math.round(harvestedIngredient.averageYield))
       : 1;
     setGreenhouseState((prev) => ({
+      ...prev,
       seeds: {
         ...prev.seeds,
         [harvestedCrop]: clampSeedCount(prev.seeds[harvestedCrop] + 1),
@@ -546,6 +582,45 @@ export default function GreenhousePhase({
       language === 'fr'
         ? `${cropLabel} recolte, +${harvestedYield} ingredient${harvestedYield > 1 ? 's' : ''}, +1 graine et +2 Noods`
         : `${cropLabel} harvested, +${harvestedYield} ingredient${harvestedYield > 1 ? 's' : ''}, +1 seed and +2 Noods`
+    );
+  };
+
+  const handleUnlockPlot = (plotId: string) => {
+    const unlockConfig = getUnlockablePlotConfig(plotId);
+    if (!unlockConfig) return;
+
+    if (unlockedPlotIds.includes(plotId)) return;
+
+    if (level < unlockConfig.levelRequired) {
+      setStatusMessage(
+        language === 'fr'
+          ? `Niveau ${unlockConfig.levelRequired} requis`
+          : `Level ${unlockConfig.levelRequired} required`
+      );
+      return;
+    }
+
+    if (coins < unlockConfig.cost) {
+      setStatusMessage(
+        language === 'fr'
+          ? `${unlockConfig.cost} Noods requis`
+          : `${unlockConfig.cost} Noods required`
+      );
+      return;
+    }
+
+    const didUnlock = onUnlockPlot?.(plotId, unlockConfig.cost) ?? false;
+    if (!didUnlock) return;
+
+    setGreenhouseState((prev) => ({
+      ...prev,
+      unlockedPlotIds: [...prev.unlockedPlotIds, plotId],
+    }));
+    setSelectedPlotId(plotId);
+    setStatusMessage(
+      language === 'fr'
+        ? `${unlockConfig.label} debloque`
+        : `${unlockConfig.label} unlocked`
     );
   };
 
@@ -602,18 +677,32 @@ export default function GreenhousePhase({
               </div>
             </div>
 
-            {plotCards.map(({ id, x, y, plot, visual }) => {
+            {plotCards.map(({ id, x, y, plot, visual, isUnlocked, unlockConfig }) => {
               const isSelected = selectedPlotId === id;
               const cropName =
                 plot.crop ? getCropDisplayName(plot.crop, language === 'fr' ? 'fr' : 'en') : '';
+              const canAffordUnlock = Boolean(unlockConfig && coins >= unlockConfig.cost);
+              const meetsLevelRequirement = Boolean(
+                !unlockConfig || level >= unlockConfig.levelRequired
+              );
 
               return (
-                <motion.button
+                <motion.div
                   key={id}
-                  type="button"
                   whileTap={{ scale: 0.98 }}
-                  onClick={() => setSelectedPlotId(id)}
+                  onClick={() => {
+                    if (!isUnlocked) return;
+                    setSelectedPlotId(id);
+                  }}
                   className="absolute overflow-hidden rounded-[28px] text-left"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(event) => {
+                    if ((event.key === 'Enter' || event.key === ' ') && isUnlocked) {
+                      event.preventDefault();
+                      setSelectedPlotId(id);
+                    }
+                  }}
                   style={{
                     left: x,
                     top: y,
@@ -647,7 +736,73 @@ export default function GreenhousePhase({
                     ) : null}
                   </div>
 
-                  {visual.isReady ? (
+                  {!isUnlocked ? (
+                    <>
+                      <div className="absolute inset-0 rounded-[28px] bg-[rgba(11,25,14,0.52)]" />
+                      <div
+                        className="absolute left-[16px] right-[16px] top-[18px] text-center text-[11px] uppercase tracking-[0.08em] text-[#F2FFE1]"
+                        style={{ fontFamily: 'Fredoka, sans-serif', fontWeight: 700 }}
+                      >
+                        {unlockConfig?.label ?? 'Locked'}
+                      </div>
+                      <div
+                        className="absolute left-[14px] right-[14px] top-[42px] text-center text-[11px] text-[#D6E8C4]"
+                        style={{ fontFamily: 'Fredoka, sans-serif', fontWeight: 600 }}
+                      >
+                        {meetsLevelRequirement
+                          ? language === 'fr'
+                            ? `${unlockConfig?.cost ?? 0} Noods pour debloquer`
+                            : `${unlockConfig?.cost ?? 0} Noods to unlock`
+                          : language === 'fr'
+                            ? `Niveau ${unlockConfig?.levelRequired ?? 0} requis`
+                            : `Level ${unlockConfig?.levelRequired ?? 0} required`}
+                      </div>
+                      <motion.button
+                        type="button"
+                        whileTap={{ scale: meetsLevelRequirement && canAffordUnlock ? 0.97 : 1 }}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleUnlockPlot(id);
+                        }}
+                        className="absolute"
+                        disabled={!meetsLevelRequirement}
+                        style={{
+                          left: UI.plotCard.actionX,
+                          top: UI.plotCard.actionY,
+                          width: UI.plotCard.actionW,
+                          height: UI.plotCard.actionH,
+                          opacity: meetsLevelRequirement ? 1 : 0.72,
+                        }}
+                      >
+                        <img
+                          src={plantButtonAsset}
+                          alt="Unlock"
+                          className="h-full w-full object-fill"
+                          draggable={false}
+                        />
+                        <span
+                          className="absolute left-0 right-0 flex justify-center text-center leading-none"
+                          style={{
+                            top: '50%',
+                            fontFamily: 'Fredoka, sans-serif',
+                            fontSize: s(10),
+                            fontWeight: 700,
+                            color: '#FFFDF7',
+                            textShadow: '0 1px 4px rgba(0,0,0,0.45)',
+                            transform: 'translateY(calc(-50% - 4px))',
+                          }}
+                        >
+                          {meetsLevelRequirement
+                            ? language === 'fr'
+                              ? `DEBLOQ. ${unlockConfig?.cost ?? 0}`
+                              : `UNLOCK ${unlockConfig?.cost ?? 0}`
+                            : language === 'fr'
+                              ? `LVL ${unlockConfig?.levelRequired ?? 0}`
+                              : `LVL ${unlockConfig?.levelRequired ?? 0}`}
+                        </span>
+                      </motion.button>
+                    </>
+                  ) : visual.isReady ? (
                     <motion.div
                       animate={{ scale: [1, 1.05, 1] }}
                       transition={{ repeat: Infinity, duration: 1.2 }}
@@ -693,7 +848,7 @@ export default function GreenhousePhase({
                     </>
                   ) : null}
 
-                  {!plot.crop ? (
+                  {isUnlocked && !plot.crop ? (
                     <motion.button
                       type="button"
                       whileTap={{ scale: 0.97 }}
@@ -732,7 +887,7 @@ export default function GreenhousePhase({
                     </motion.button>
                   ) : null}
 
-                  {plot.crop && visual.isReady ? (
+                  {isUnlocked && plot.crop && visual.isReady ? (
                     <motion.button
                       type="button"
                       whileTap={{ scale: 0.97 }}
@@ -771,7 +926,7 @@ export default function GreenhousePhase({
                       </span>
                     </motion.button>
                   ) : null}
-                </motion.button>
+                </motion.div>
               );
             })}
 
