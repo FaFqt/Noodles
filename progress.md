@@ -74,3 +74,11 @@ Update
 Update
 - Audited the Dojo reconnect flow: `PlayerInventory` onchain currently stores `noods_balance` plus a few seed counters only, while the common ingredient inventory remains frontend-local and is not represented in the Cairo models yet.
 - Added a reconnect safety guard in `App.tsx`: if Dojo progress is readable but `PlayerInventory` cannot be read, the app now preserves the local cached stats and pauses automatic progress sync instead of falling back to default Noods and risking an overwrite of the onchain balance.
+
+Update
+- Added a first-time recipe-selection tutorial before the player starts cooking: step 1 explains that each ramen card exposes a target time and base XP, and step 2 explains the day loop (`5` services) plus the need to reach level `2` to secure the first rewards.
+- Stored the restaurant and recipe-selection onboarding flags per wallet/local player in `localStorage`, and both are now cleared again by the dev progression reset.
+- If the player leaves recipe selection before completing the first full day, the restaurant screen now shows a short reminder encouraging them to come back, finish the day, and push toward the first rewards.
+
+TODO
+- Run an in-browser pass on the new recipe-selection tutorial to validate overlay placement, readability, and mobile hitboxes; current verification is limited to `vite build`.

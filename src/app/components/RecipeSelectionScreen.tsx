@@ -39,6 +39,9 @@ interface RecipeSelectionScreenProps {
   onCook?: (recipeId: string) => void;
   progressCurrent?: number;
   progressMax?: number;
+  firstRewardLevel?: number;
+  showStarterTutorial?: boolean;
+  onDismissStarterTutorial?: () => void;
   playerName?: string;
   coins?: number;
   level?: number;
@@ -94,6 +97,26 @@ const UI = {
     y: 580,
     w: 368,
     h: 56,
+  },
+
+  tutorialCard: {
+    x: 24,
+    y: 130,
+    w: 382,
+  },
+
+  tutorialCardsHighlight: {
+    x: 22,
+    y: 146,
+    w: 386,
+    h: 418,
+  },
+
+  tutorialProgressHighlight: {
+    x: 24,
+    y: 574,
+    w: 380,
+    h: 68,
   },
 
   cookButton: {
@@ -273,6 +296,9 @@ export default function RecipeSelectionScreen({
   onCook,
   progressCurrent = 0,
   progressMax = 5,
+  firstRewardLevel = 2,
+  showStarterTutorial = false,
+  onDismissStarterTutorial,
   playerName = "Bento-chan",
   coins = 10,
   level = 1,
@@ -281,10 +307,20 @@ export default function RecipeSelectionScreen({
 }: RecipeSelectionScreenProps) {
   const { language } = useLanguage();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [tutorialStep, setTutorialStep] = useState<number | null>(null);
 
   useEffect(() => {
     setSelectedId(null);
   }, [recipes]);
+
+  useEffect(() => {
+    if (showStarterTutorial) {
+      setTutorialStep(0);
+      return;
+    }
+
+    setTutorialStep(null);
+  }, [showStarterTutorial]);
 
   const selectedRecipe = useMemo(
     () => recipes.find((recipe) => recipe.id === selectedId) ?? null,
@@ -295,6 +331,9 @@ export default function RecipeSelectionScreen({
   const ribbonImage = language === "fr" ? ribbonImageFR : ribbonImageEN;
   const inProgressText = language === "fr" ? "En cours" : "In Progress";
   const cookText = language === "fr" ? "CUISINER" : "COOK";
+  const isTutorialVisible = showStarterTutorial && tutorialStep !== null;
+  const showCardsHighlight = isTutorialVisible && tutorialStep === 0;
+  const showProgressHighlight = isTutorialVisible && tutorialStep === 1;
 
   const displayRecipes = useMemo<DisplayRecipeSelectionItem[]>(
     () =>
@@ -304,6 +343,25 @@ export default function RecipeSelectionScreen({
       })),
     [recipes, language]
   );
+
+  const handleDismissTutorial = () => {
+    setTutorialStep(null);
+    onDismissStarterTutorial?.();
+  };
+
+  const handleTutorialPrimaryAction = () => {
+    if (tutorialStep === 0) {
+      setTutorialStep(1);
+      return;
+    }
+
+    handleDismissTutorial();
+  };
+
+  const handleCookClick = () => {
+    if (isTutorialVisible || !selectedId || !canCookSelectedRecipe) return;
+    onCook?.(selectedId);
+  };
 
   return (
     <ResponsiveGameCanvas
@@ -336,6 +394,52 @@ export default function RecipeSelectionScreen({
               className="relative h-full w-full"
               style={{ paddingTop: UI.contentTop }}
             >
+              {showCardsHighlight ? (
+                <motion.div
+                  className="pointer-events-none absolute rounded-[30px] border-2 border-[#ffe08f]"
+                  style={{
+                    left: UI.tutorialCardsHighlight.x,
+                    top: UI.tutorialCardsHighlight.y,
+                    width: UI.tutorialCardsHighlight.w,
+                    height: UI.tutorialCardsHighlight.h,
+                    zIndex: 45,
+                    boxShadow: "0 0 0 8px rgba(255,214,116,0.12)",
+                  }}
+                  animate={{
+                    scale: [1, 1.01, 1],
+                    boxShadow: [
+                      "0 0 0 8px rgba(255,214,116,0.12)",
+                      "0 0 0 14px rgba(255,214,116,0.08)",
+                      "0 0 0 8px rgba(255,214,116,0.12)",
+                    ],
+                  }}
+                  transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+                />
+              ) : null}
+
+              {showProgressHighlight ? (
+                <motion.div
+                  className="pointer-events-none absolute rounded-[24px] border-2 border-[#ffe08f]"
+                  style={{
+                    left: UI.tutorialProgressHighlight.x,
+                    top: UI.tutorialProgressHighlight.y,
+                    width: UI.tutorialProgressHighlight.w,
+                    height: UI.tutorialProgressHighlight.h,
+                    zIndex: 45,
+                    boxShadow: "0 0 0 8px rgba(255,214,116,0.12)",
+                  }}
+                  animate={{
+                    scale: [1, 1.015, 1],
+                    boxShadow: [
+                      "0 0 0 8px rgba(255,214,116,0.12)",
+                      "0 0 0 14px rgba(255,214,116,0.08)",
+                      "0 0 0 8px rgba(255,214,116,0.12)",
+                    ],
+                  }}
+                  transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+                />
+              ) : null}
+
               <div
                 className="absolute"
                 style={{
@@ -414,7 +518,7 @@ export default function RecipeSelectionScreen({
               <motion.button
                 whileTap={selectedId && canCookSelectedRecipe ? { scale: 0.97, y: 2 } : {}}
                 whileHover={selectedId && canCookSelectedRecipe ? { scale: 1.02 } : {}}
-                onClick={() => selectedId && onCook?.(selectedId)}
+                onClick={handleCookClick}
                 disabled={!selectedId || !canCookSelectedRecipe}
                 type="button"
                 className="absolute disabled:opacity-60"
@@ -453,6 +557,74 @@ export default function RecipeSelectionScreen({
                         : "LOW STOCK"}
                 </span>
               </motion.button>
+
+              {isTutorialVisible ? (
+                <>
+                  <div className="absolute inset-0 z-40 bg-[rgba(23,10,4,0.4)]" />
+
+                  <motion.div
+                    initial={{ opacity: 0, y: 18, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    className="absolute z-50 rounded-[28px] border border-[#ffd896]/45 bg-[rgba(77,34,15,0.94)] px-5 py-5 text-[#fff4df] shadow-[0_20px_50px_rgba(0,0,0,0.28)] backdrop-blur-sm"
+                    style={{
+                      left: UI.tutorialCard.x,
+                      top: UI.tutorialCard.y,
+                      width: UI.tutorialCard.w,
+                      fontFamily: "Fredoka, sans-serif",
+                    }}
+                  >
+                    <div className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-[#ffd990]">
+                      {language === "fr"
+                        ? `Tutoriel ${tutorialStep === 0 ? "1/2" : "2/2"}`
+                        : `Tutorial ${tutorialStep === 0 ? "1/2" : "2/2"}`}
+                    </div>
+
+                    <div className="mt-3 text-[1.16rem] font-bold leading-tight text-[#fffaf1]">
+                      {tutorialStep === 0
+                        ? language === "fr"
+                          ? "Chaque ramen a son temps et son XP"
+                          : "Each ramen has its own time and XP"
+                        : language === "fr"
+                          ? "La journee avance service apres service"
+                          : "The day moves forward one service at a time"}
+                    </div>
+
+                    <div className="mt-3 text-[0.9rem] leading-[1.45] text-[#ffe8c9]">
+                      {tutorialStep === 0
+                        ? language === "fr"
+                          ? "Sur chaque carte, l’horloge indique le temps cible du ramen et l’etoile montre l’XP de base que tu peux gagner en le reussissant."
+                          : "On each card, the clock shows the ramen target time and the star shows the base XP you can earn by completing it well."
+                        : language === "fr"
+                          ? `La barre du bas suit ta progression de la journee. Termine ${progressMax} recettes et vise le niveau ${firstRewardLevel} pour obtenir tes premieres recompenses.`
+                          : `The bottom bar tracks your day progress. Finish ${progressMax} recipes and aim for level ${firstRewardLevel} to earn your first rewards.`}
+                    </div>
+
+                    <div className="mt-5 flex items-center justify-between gap-3">
+                      <button
+                        type="button"
+                        onClick={handleDismissTutorial}
+                        className="rounded-full border border-[#ffd896]/35 px-4 py-2 text-[0.82rem] font-semibold text-[#ffe1b2]"
+                      >
+                        {language === "fr" ? "Passer" : "Skip"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleTutorialPrimaryAction}
+                        className="rounded-full bg-[linear-gradient(180deg,#ffd56c_0%,#ee9638_100%)] px-5 py-2 text-[0.86rem] font-bold text-[#5c2a10] shadow-[0_8px_18px_rgba(0,0,0,0.2)]"
+                      >
+                        {tutorialStep === 0
+                          ? language === "fr"
+                            ? "Suivant"
+                            : "Next"
+                          : language === "fr"
+                            ? "J'ai compris"
+                            : "Got it"}
+                      </button>
+                    </div>
+                  </motion.div>
+                </>
+              ) : null}
             </div>
           </div>
         </>
