@@ -120,6 +120,8 @@ const WALLET_REWARD_STATE_STORAGE_KEY_PREFIX = 'walletRewardState';
 const WALLET_PROGRESS_STATE_STORAGE_KEY_PREFIX = 'walletProgressState';
 const GREENHOUSE_STATE_STORAGE_KEY_PREFIX = 'greenhouse-ui-state-v2';
 const MARKET_STATE_STORAGE_KEY_PREFIX = 'market-ui-state-v1';
+const RESTAURANT_TUTORIAL_STORAGE_KEY_PREFIX = 'restaurant-tutorial-v1';
+const RECIPE_SELECTION_TUTORIAL_STORAGE_KEY_PREFIX = 'recipe-selection-tutorial-v1';
 const LEGACY_GREENHOUSE_STATE_STORAGE_KEY = 'greenhouse-ui-state-v1';
 const DEV_PROGRESS_RESET_ENABLED =
   import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEV_RESET === 'true';
@@ -313,6 +315,18 @@ function getMarketStateStorageKey(walletAddress?: string | null) {
   return walletAddress
     ? `${MARKET_STATE_STORAGE_KEY_PREFIX}:${walletAddress.toLowerCase()}`
     : `${MARKET_STATE_STORAGE_KEY_PREFIX}:local`;
+}
+
+function getRestaurantTutorialStorageKey(walletAddress?: string | null) {
+  return walletAddress
+    ? `${RESTAURANT_TUTORIAL_STORAGE_KEY_PREFIX}:${walletAddress.toLowerCase()}`
+    : `${RESTAURANT_TUTORIAL_STORAGE_KEY_PREFIX}:local`;
+}
+
+function getRecipeSelectionTutorialStorageKey(walletAddress?: string | null) {
+  return walletAddress
+    ? `${RECIPE_SELECTION_TUTORIAL_STORAGE_KEY_PREFIX}:${walletAddress.toLowerCase()}`
+    : `${RECIPE_SELECTION_TUTORIAL_STORAGE_KEY_PREFIX}:local`;
 }
 
 function readWalletProgressState(walletAddress: string): WalletProgressState | null {
@@ -701,6 +715,9 @@ export default function App() {
   const [restaurantInventoryMessage, setRestaurantInventoryMessage] = useState<string | null>(
     null
   );
+  const [hasSeenRestaurantTutorial, setHasSeenRestaurantTutorial] = useState(false);
+  const [hasSeenRecipeSelectionTutorial, setHasSeenRecipeSelectionTutorial] = useState(false);
+  const [showRestaurantProgressReminder, setShowRestaurantProgressReminder] = useState(false);
   const [dojoRegistrationConfirmed, setDojoRegistrationConfirmed] = useState(false);
   const [knownDojoPlayers, setKnownDojoPlayers] = useState<Set<string>>(readKnownDojoPlayers);
   const [isWalletSyncing, setIsWalletSyncing] = useState(false);
@@ -733,6 +750,12 @@ export default function App() {
   const displayPlayerName = playerWallet?.profileName ?? playerStats.name;
   const greenhouseStorageKey = getGreenhouseStateStorageKey(playerWallet?.address);
   const marketStorageKey = getMarketStateStorageKey(playerWallet?.address);
+  const restaurantTutorialStorageKey = getRestaurantTutorialStorageKey(
+    playerWallet?.address
+  );
+  const recipeSelectionTutorialStorageKey = getRecipeSelectionTutorialStorageKey(
+    playerWallet?.address
+  );
   const tipJarUnlockLevel = getFirstRewardLevelByType('tipjar_unlock');
   const greenhouseUnlockLevel = getFirstRewardLevelByType('greenhouse_unlock');
   const marketUnlockLevel = getFirstRewardLevelByType('market_unlock');
@@ -853,6 +876,20 @@ export default function App() {
 
     return () => window.clearTimeout(timeout);
   }, [restaurantInventoryMessage]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const rawValue = window.localStorage.getItem(restaurantTutorialStorageKey);
+    setHasSeenRestaurantTutorial(rawValue === 'seen');
+  }, [restaurantTutorialStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const rawValue = window.localStorage.getItem(recipeSelectionTutorialStorageKey);
+    setHasSeenRecipeSelectionTutorial(rawValue === 'seen');
+  }, [recipeSelectionTutorialStorageKey]);
 
   const restoreWalletRewardState = useCallback(
     (walletAddress: string, onchainSnapshot?: OnchainPlayerSnapshot | null) => {
@@ -1390,6 +1427,10 @@ export default function App() {
       window.localStorage.removeItem(getWalletProgressStateStorageKey(playerWallet.address));
       window.localStorage.removeItem(getGreenhouseStateStorageKey(playerWallet.address));
       window.localStorage.removeItem(getMarketStateStorageKey(playerWallet.address));
+      window.localStorage.removeItem(getRestaurantTutorialStorageKey(playerWallet.address));
+      window.localStorage.removeItem(
+        getRecipeSelectionTutorialStorageKey(playerWallet.address)
+      );
     }
 
     if (typeof window !== 'undefined') {
@@ -1419,6 +1460,9 @@ export default function App() {
     setPendingLevelRewards([]);
     setHasPendingProgressSync(false);
     setHasPendingIngredientInventorySync(false);
+    setHasSeenRestaurantTutorial(false);
+    setHasSeenRecipeSelectionTutorial(false);
+    setShowRestaurantProgressReminder(false);
     setHasHydratedOnchainProgress(true);
     setWalletSyncMessage(
       resetResult.status === 'reset'
@@ -1432,6 +1476,7 @@ export default function App() {
       return;
     }
 
+    setShowRestaurantProgressReminder(false);
     setGameState('recipeSelection');
   };
 
@@ -1481,10 +1526,15 @@ export default function App() {
   };
 
   const handleExitRestaurant = () => {
+    setShowRestaurantProgressReminder(false);
     setGameState('village');
   };
 
   const handleBackToRestaurant = () => {
+    if (completedRestaurantDays === 0) {
+      setShowRestaurantProgressReminder(true);
+    }
+
     setGameState('restaurant');
   };
 
@@ -1806,6 +1856,7 @@ export default function App() {
 
     const cooldownEndsAt = Date.now() + RESTAURANT_SERVICE_COOLDOWN_MS;
     setCompletedRestaurantDays((prev) => prev + 1);
+    setShowRestaurantProgressReminder(false);
     setRestaurantServicePausedUntil(cooldownEndsAt);
     setDayCoinsEarned(0);
     setDayXpEarned(0);
@@ -2032,6 +2083,28 @@ export default function App() {
       JSON.stringify(nextState)
     );
   }, [hasPendingProgressSync, isWalletSyncing, playerStats, playerWallet?.address]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    if (hasSeenRestaurantTutorial) {
+      window.localStorage.setItem(restaurantTutorialStorageKey, 'seen');
+      return;
+    }
+
+    window.localStorage.removeItem(restaurantTutorialStorageKey);
+  }, [hasSeenRestaurantTutorial, restaurantTutorialStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    if (hasSeenRecipeSelectionTutorial) {
+      window.localStorage.setItem(recipeSelectionTutorialStorageKey, 'seen');
+      return;
+    }
+
+    window.localStorage.removeItem(recipeSelectionTutorialStorageKey);
+  }, [hasSeenRecipeSelectionTutorial, recipeSelectionTutorialStorageKey]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -2284,6 +2357,23 @@ export default function App() {
                   servicePausedUntil={restaurantServicePausedUntil}
                   tipJarTokensAvailable={tipJarTokensAvailable}
                   tipJarCollected={tipJarCollected}
+                  showProgressReminderCard={
+                    showRestaurantProgressReminder && completedRestaurantDays === 0
+                  }
+                  remainingServicesToCompleteDay={Math.max(
+                    1,
+                    SERVICES_PER_DAY - completedServices
+                  )}
+                  firstRewardLevel={tipJarUnlockLevel}
+                  onDismissProgressReminder={() => {
+                    setShowRestaurantProgressReminder(false);
+                  }}
+                  showStarterTutorial={
+                    !hasSeenRestaurantTutorial && completedRestaurantDays === 0
+                  }
+                  onDismissStarterTutorial={() => {
+                    setHasSeenRestaurantTutorial(true);
+                  }}
                   onCollectTipJar={handleCollectTipJar}
                   onOpenInventory={handleOpenIngredientInventory}
                   onEnter={handleEnterRestaurant}
@@ -2324,6 +2414,15 @@ export default function App() {
                   onCook={handleCookSelectedRecipe}
                   progressCurrent={completedServices}
                   progressMax={SERVICES_PER_DAY}
+                  firstRewardLevel={tipJarUnlockLevel}
+                  showStarterTutorial={
+                    !hasSeenRecipeSelectionTutorial &&
+                    completedRestaurantDays === 0 &&
+                    completedServices === 0
+                  }
+                  onDismissStarterTutorial={() => {
+                    setHasSeenRecipeSelectionTutorial(true);
+                  }}
                   playerName={displayPlayerName}
                   coins={playerStats.coins}
                   level={playerStats.level}

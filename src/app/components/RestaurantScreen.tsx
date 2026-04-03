@@ -33,6 +33,12 @@ interface RestaurantScreenProps {
   servicePausedUntil?: number | null;
   tipJarTokensAvailable?: number;
   tipJarCollected?: boolean;
+  showProgressReminderCard?: boolean;
+  remainingServicesToCompleteDay?: number;
+  firstRewardLevel?: number;
+  onDismissProgressReminder?: () => void;
+  showStarterTutorial?: boolean;
+  onDismissStarterTutorial?: () => void;
   onCollectTipJar?: () => void;
   onOpenInventory?: () => void;
 }
@@ -90,6 +96,11 @@ const UI = {
     w: s(340),
     h: s(40),
   },
+  tutorialCard: {
+    x: s(24),
+    y: s(420),
+    w: s(382),
+  },
   cookButton: {
     x: s(80),
     y: s(650),
@@ -135,6 +146,12 @@ export default function NoodlesRestaurantScreen({
   servicePausedUntil = null,
   tipJarTokensAvailable = 0,
   tipJarCollected = false,
+  showProgressReminderCard = false,
+  remainingServicesToCompleteDay = 1,
+  firstRewardLevel = 2,
+  onDismissProgressReminder,
+  showStarterTutorial = false,
+  onDismissStarterTutorial,
   onCollectTipJar,
   onOpenInventory,
 }: RestaurantScreenProps) {
@@ -144,6 +161,7 @@ export default function NoodlesRestaurantScreen({
   const [now, setNow] = useState(() => Date.now());
   const [flyingTokens, setFlyingTokens] = useState<FlyingToken[]>([]);
   const [isCollectingTipJar, setIsCollectingTipJar] = useState(false);
+  const [tutorialStep, setTutorialStep] = useState<number | null>(null);
   const [viewportSize, setViewportSize] = useState({
     width: DESIGN_WIDTH,
     height: DESIGN_HEIGHT,
@@ -204,10 +222,52 @@ export default function NoodlesRestaurantScreen({
   const scaledHeight = DESIGN_HEIGHT * layoutScale;
   const scaledOffsetX = (viewportSize.width - scaledWidth) / 2;
   const scaledOffsetY = (viewportSize.height - scaledHeight) / 2;
+  const isTutorialVisible = showStarterTutorial && tutorialStep !== null;
+  const isProgressReminderVisible = showProgressReminderCard && !isTutorialVisible;
+  const showCookButtonHighlight = isTutorialVisible && tutorialStep === 1;
+  const reminderServiceLabel =
+    language === "fr"
+      ? remainingServicesToCompleteDay > 1
+        ? "recettes"
+        : "recette"
+      : remainingServicesToCompleteDay > 1
+        ? "recipes"
+        : "recipe";
 
   const handleCookClick = () => {
-    if (isServicePaused || !canStartCooking) return;
+    if (tutorialStep === 1 && !isServicePaused && canStartCooking) {
+      handleDismissTutorial();
+      onEnter?.();
+      return;
+    }
+
+    if (isTutorialVisible || isServicePaused || !canStartCooking) return;
     onEnter?.();
+  };
+
+  const handleProgressReminderPrimaryAction = () => {
+    onDismissProgressReminder?.();
+
+    if (!isServicePaused && canStartCooking) {
+      onEnter?.();
+    }
+  };
+
+  const handleDismissTutorial = () => {
+    setTutorialStep(null);
+    onDismissStarterTutorial?.();
+  };
+
+  const handleTutorialPrimaryAction = () => {
+    if (tutorialStep === 0) {
+      setTutorialStep(1);
+      return;
+    }
+
+    handleDismissTutorial();
+    if (!isServicePaused && canStartCooking) {
+      onEnter?.();
+    }
   };
 
   const handleCollectTipJar = () => {
@@ -238,6 +298,15 @@ export default function NoodlesRestaurantScreen({
       setFlyingTokens([]);
     }
   }, [canCollectTipJar]);
+
+  useEffect(() => {
+    if (showStarterTutorial) {
+      setTutorialStep(0);
+      return;
+    }
+
+    setTutorialStep(null);
+  }, [showStarterTutorial]);
 
   useEffect(() => {
     return () => {
@@ -281,6 +350,29 @@ export default function NoodlesRestaurantScreen({
         />
 
         <div className="relative h-full w-full">
+          {showCookButtonHighlight ? (
+            <motion.div
+              className="pointer-events-none absolute rounded-[30px] border-2 border-[#ffe08f]"
+              style={{
+                left: UI.cookButton.x - 8,
+                top: UI.cookButton.y - 8,
+                width: UI.cookButton.w + 16,
+                height: UI.cookButton.h + 16,
+                zIndex: 45,
+                boxShadow: "0 0 0 6px rgba(255,214,116,0.14)",
+              }}
+              animate={{
+                scale: [1, 1.02, 1],
+                boxShadow: [
+                  "0 0 0 6px rgba(255,214,116,0.14)",
+                  "0 0 0 12px rgba(255,214,116,0.1)",
+                  "0 0 0 6px rgba(255,214,116,0.14)",
+                ],
+              }}
+              transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+            />
+          ) : null}
+
           {serviceSlotsVisible
             ? UI.serviceSlots.map((slot, index) => {
                 const isLocked = slot.locked;
@@ -497,6 +589,54 @@ export default function NoodlesRestaurantScreen({
             </div>
           ) : null}
 
+          {isProgressReminderVisible ? (
+            <motion.div
+              initial={{ opacity: 0, y: 18, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              className="absolute z-40 rounded-[28px] border border-[#ffd896]/45 bg-[rgba(77,34,15,0.92)] px-5 py-5 text-[#fff4df] shadow-[0_20px_50px_rgba(0,0,0,0.28)] backdrop-blur-sm"
+              style={{
+                ...fredokaStyle,
+                left: UI.tutorialCard.x,
+                top: UI.tutorialCard.y,
+                width: UI.tutorialCard.w,
+              }}
+            >
+              <div className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-[#ffd990]">
+                {language === "fr" ? "Progression" : "Progress"}
+              </div>
+
+              <div className="mt-3 text-[1.2rem] font-bold leading-tight text-[#fffaf1]">
+                {language === "fr"
+                  ? "Tes premieres recompenses sont proches"
+                  : "Your first rewards are close"}
+              </div>
+
+              <div className="mt-3 text-[0.9rem] leading-[1.45] text-[#ffe8c9]">
+                {language === "fr"
+                  ? `Encore ${remainingServicesToCompleteDay} ${reminderServiceLabel} pour finir ta premiere journee. Continue a cuisiner et vise le niveau ${firstRewardLevel} pour obtenir tes premieres recompenses.`
+                  : `${remainingServicesToCompleteDay} more ${reminderServiceLabel} to finish your first day. Keep cooking and aim for level ${firstRewardLevel} to earn your first rewards.`}
+              </div>
+
+              <div className="mt-5 flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={onDismissProgressReminder}
+                  className="rounded-full border border-[#ffd896]/35 px-4 py-2 text-[0.82rem] font-semibold text-[#ffe1b2]"
+                >
+                  {language === "fr" ? "Plus tard" : "Later"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleProgressReminderPrimaryAction}
+                  className="rounded-full bg-[linear-gradient(180deg,#ffd56c_0%,#ee9638_100%)] px-5 py-2 text-[0.86rem] font-bold text-[#5c2a10] shadow-[0_8px_18px_rgba(0,0,0,0.2)]"
+                >
+                  {language === "fr" ? "Retour a la cuisine" : "Back to cooking"}
+                </button>
+              </div>
+            </motion.div>
+          ) : null}
+
           <motion.button
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -506,7 +646,7 @@ export default function NoodlesRestaurantScreen({
             onClick={handleCookClick}
             disabled={isServicePaused || !canStartCooking}
             type="button"
-            className="absolute z-30 disabled:opacity-65"
+            className={`absolute ${isTutorialVisible ? "z-50" : "z-30"} disabled:opacity-65`}
             style={{
               left: UI.cookButton.x,
               top: UI.cookButton.y,
@@ -545,6 +685,74 @@ export default function NoodlesRestaurantScreen({
                 : t("cookRestaurant")}
             </span>
           </motion.button>
+
+          {isTutorialVisible ? (
+            <>
+              <div className="absolute inset-0 z-40 bg-[rgba(23,10,4,0.38)]" />
+
+              <motion.div
+                initial={{ opacity: 0, y: 18, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                className="absolute z-50 rounded-[28px] border border-[#ffd896]/45 bg-[rgba(77,34,15,0.92)] px-5 py-5 text-[#fff4df] shadow-[0_20px_50px_rgba(0,0,0,0.28)] backdrop-blur-sm"
+                style={{
+                  ...fredokaStyle,
+                  left: UI.tutorialCard.x,
+                  top: UI.tutorialCard.y,
+                  width: UI.tutorialCard.w,
+                }}
+              >
+                <div className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-[#ffd990]">
+                  {language === "fr"
+                    ? `Tutoriel ${tutorialStep === 0 ? "1/2" : "2/2"}`
+                    : `Tutorial ${tutorialStep === 0 ? "1/2" : "2/2"}`}
+                </div>
+
+                <div className="mt-3 text-[1.2rem] font-bold leading-tight text-[#fffaf1]">
+                  {tutorialStep === 0
+                    ? language === "fr"
+                      ? "Bienvenue dans ton premier service"
+                      : "Welcome to your first service"
+                    : language === "fr"
+                      ? "Le bouton principal lance la cuisine"
+                      : "The main button starts cooking"}
+                </div>
+
+                <div className="mt-3 text-[0.9rem] leading-[1.45] text-[#ffe8c9]">
+                  {tutorialStep === 0
+                    ? language === "fr"
+                      ? "Le restaurant est ton point de départ. C’est ici que tu gagnes tes premiers Noods, ton XP, et que tu fais tourner la journée."
+                      : "The restaurant is your main starting point. This is where you earn your first Noods, XP, and progress through the day."
+                    : language === "fr"
+                      ? "Appuie sur CUISINER pour choisir un ramen et démarrer ta première commande. Les autres outils du restaurant se débloquent un peu plus tard."
+                      : "Press COOK to pick a ramen and start your first order. The other restaurant tools unlock a little later."}
+                </div>
+
+                <div className="mt-5 flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={handleDismissTutorial}
+                    className="rounded-full border border-[#ffd896]/35 px-4 py-2 text-[0.82rem] font-semibold text-[#ffe1b2]"
+                  >
+                    {language === "fr" ? "Passer" : "Skip"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleTutorialPrimaryAction}
+                    className="rounded-full bg-[linear-gradient(180deg,#ffd56c_0%,#ee9638_100%)] px-5 py-2 text-[0.86rem] font-bold text-[#5c2a10] shadow-[0_8px_18px_rgba(0,0,0,0.2)]"
+                  >
+                    {tutorialStep === 0
+                      ? language === "fr"
+                        ? "Suivant"
+                        : "Next"
+                      : language === "fr"
+                        ? "Choisir un ramen"
+                        : "Choose a ramen"}
+                  </button>
+                </div>
+              </motion.div>
+            </>
+          ) : null}
         </div>
       </div>
     </div>
