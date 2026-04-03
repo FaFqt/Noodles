@@ -117,7 +117,7 @@ const UI = {
 } as const;
 
 const RHYTHM_OPTIONS = [1100, 1350, 1600, 1850, 2100];
-const BAD_MOVE_XP_PENALTY = 1; // Mets 0 si tu veux désactiver le malus
+const BAD_MOVE_XP_PENALTY = 0;
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -467,10 +467,10 @@ export default function BrothStirPhase({
         showFeedback(language === "fr" ? "Bien joué !" : "Good!");
       } else {
         const now = Date.now();
-        if (now - penaltyCooldownRef.current > 180) {
+        if (now - penaltyCooldownRef.current > 240) {
           penaltyCooldownRef.current = now;
-          setQuality((prev) => clamp(prev - 1.8, 0, 100));
-          setStirProgress((prev) => clamp(prev - 0.8, 0, 100));
+          setQuality((prev) => clamp(prev - 1.1, 0, 100));
+          setStirProgress((prev) => clamp(prev - 0.35, 0, 100));
           setXpPenalty((prev) => prev + BAD_MOVE_XP_PENALTY);
         }
 
@@ -713,7 +713,7 @@ export default function BrothStirPhase({
             <span>{currentDirectionLabel}</span>
             <span>{currentRhythmLabel}</span>
             <span>
-              {language === "fr" ? "Malus XP" : "XP Penalty"}: {xpPenalty}
+              {language === "fr" ? "Qualité" : "Quality"}: {Math.round(quality)}%
             </span>
           </div>
 

@@ -80,5 +80,10 @@ Update
 - Stored the restaurant and recipe-selection onboarding flags per wallet/local player in `localStorage`, and both are now cleared again by the dev progression reset.
 - If the player leaves recipe selection before completing the first full day, the restaurant screen now shows a short reminder encouraging them to come back, finish the day, and push toward the first rewards.
 
+Update
+- Fixed an XP mismatch between the satisfaction screen and the actual progression gain: `SatisfactionScreen` now receives and uses `brothXpPenalty`, matching the same calculation already used in `App.tsx` when XP is finally applied.
+- Reduced broth-stir frustration by removing the explicit XP penalty from wrong stirring moves. Mistakes still lower broth quality and slightly slow progress, but they no longer subtract XP a second time on top of the final quality calculation.
+- Softened the broth-stir punishment loop further by reducing the quality/progress loss per bad move and spacing penalties a bit more, so recovery during the minigame feels fairer.
+
 TODO
 - Run an in-browser pass on the new recipe-selection tutorial to validate overlay placement, readability, and mobile hitboxes; current verification is limited to `vite build`.

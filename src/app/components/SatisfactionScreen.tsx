@@ -105,6 +105,7 @@ interface SatisfactionScreenProps {
   targetTotalTimeSeconds: number;
 
   baseXp?: number;
+  brothXpPenalty?: number;
   didExpire?: boolean;
   onContinue?: () => void;
 }
@@ -320,6 +321,7 @@ export default function SatisfactionScreen({
   totalTimeSpentSeconds,
   targetTotalTimeSeconds,
   baseXp = 85,
+  brothXpPenalty = 0,
   didExpire = false,
   onContinue,
 }: SatisfactionScreenProps) {
@@ -334,6 +336,7 @@ export default function SatisfactionScreen({
       totalTimeSpentSeconds,
       targetTotalTimeSeconds,
       baseXp,
+      brothXpPenalty,
       didExpire,
     });
   }, [
@@ -344,6 +347,7 @@ export default function SatisfactionScreen({
     totalTimeSpentSeconds,
     targetTotalTimeSeconds,
     baseXp,
+    brothXpPenalty,
     didExpire,
   ]);
 

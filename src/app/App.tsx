@@ -2502,6 +2502,7 @@ export default function App() {
                 totalTimeSpentSeconds={completedOrder.totalTimeSpentSeconds}
                 targetTotalTimeSeconds={completedOrder.targetTotalTimeSeconds}
                 baseXp={completedOrder.order.reward}
+                brothXpPenalty={completedOrder.brothXpPenalty}
                 didExpire={completedOrder.didExpire}
                 onContinue={handleRewardComplete}
               />
